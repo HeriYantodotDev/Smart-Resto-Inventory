@@ -1,0 +1,13 @@
+{
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "workbench.colorCustomizations": {
+    "activityBar.background": "#1D2F41",
+    "titleBar.activeBackground": "#28415B",
+    "titleBar.activeForeground": "#F8FAFC"
+  },
+  "cSpell.words": [
+    "Resto"
+  ]
+}

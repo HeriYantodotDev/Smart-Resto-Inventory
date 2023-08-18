@@ -45,6 +45,8 @@
   In this test we're using the helper function from `firebase.auth.ts` to test related with the firebase authentication. Before each test we will delete the user.
   Then we test for create a new auth user and also sign in. We don't have to mock the firebase since we're using local emulator, so everything will work as expected.
 
+  > Remember that we have to polyfill the fetch implementation using `whatwg-fetch`
+
   ```tsx
   /* eslint-disable import/no-extraneous-dependencies */
   import '@testing-library/jest-dom';
@@ -122,3 +124,56 @@
     }
   }
   ```
+
+Great now let's add several test for checking the error. We don't have to do this though, however, I'd like to test the Firebase Error and also the enum that we've just created.
+
+In the belows test we import `import { FirebaseError } from 'firebase/app';` to get the type of the Firebase Error. We check whether the error is the instance of Firebase Error, then assign the error code to be check.
+
+```tsx
+test(`throws errorCode: ${FbEnum.errorAuthEmailInUse} when existing user email is sent`, async () => {
+  let errorCode: string = '';
+  try {
+    await createAuthUserWithEmailAndPassword(emailTest, passTest);
+    await createAuthUserWithEmailAndPassword(emailTest, passTest);
+  } catch (err: unknown) {
+    if (err instanceof FirebaseError) {
+      errorCode = err.code;
+    } else {
+      // eslint-disable-next-line no-console
+      console.log(err);
+    }
+  }
+  expect(errorCode).toBe(FbEnum.errorAuthEmailInUse);
+});
+
+test('throws errorCode: "auth/user-not-found" when invalid credential is sent', async () => {
+  await createAuthUserWithEmailAndPassword(emailTest, passTest);
+  let errorCode: string = '';
+  try {
+    await signInAuthUserWithEmailAndPassword('random@gmail.com', passTest);
+  } catch (err: unknown) {
+    if (err instanceof FirebaseError) {
+      errorCode = err.code;
+    } else {
+      // eslint-disable-next-line no-console
+      console.log(err);
+    }
+  }
+  expect(errorCode).toBe(FbEnum.errorAuthUserNotFound);
+});
+```
+
+For the implementation we just need to create an enum file named `firebaseEnum.ts` :
+
+```tsx
+enum FbEnum {
+  errorAuthUserNotFound = 'auth/user-not-found',
+  errorAuthEmailInUse = 'auth/email-already-in-use',
+}
+
+export default FbEnum;
+```
+
+> Remember we don't have to test the libraries. However in the case above we will use the enums later in our next implementation.
+
+> Here's the full list of [Auth Error](https://firebase.google.com/docs/auth/admin/errors)

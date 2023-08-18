@@ -136,7 +136,7 @@ Code snippet:
 
 ## Database Test
 
-Testing Firebase in React Environment using Jest? Should I find it out how? before moving to the next stage.
+✅ Testing Firebase in React Environment using Jest? Should I find it out how? before moving to the next stage.
 Several Options:
 
 - Mocking the Firebase implementation

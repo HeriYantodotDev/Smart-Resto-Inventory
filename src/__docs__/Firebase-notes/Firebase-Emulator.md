@@ -35,6 +35,15 @@ Before continuing, we have to ensure that we have to set up our firebase project
 
 - Say Yes when it asks 'Would you like to enable the Emulator UI', and we can go default for the port. And then say yes when it asks 'Would you like to download the emulators now'
 
+- It would generate several files:
+
+  - `.firebaserc`
+  - `firebase.json`
+  - `firestore.indexes.json`
+  - `firestore.rules`
+  - `firestore-debug.log`
+  - `ui-debug.log`
+
 - Now run this command : `firebase emulators:start`
   You might encounter error like this :
 
@@ -66,7 +75,7 @@ Before continuing, we have to ensure that we have to set up our firebase project
 
 ## Test Set up
 
-In the config file then we set something like this:
+In the firebase config file then we set something like this:
 
 ```typescript
 /* eslint-disable import/no-extraneous-dependencies */
@@ -94,4 +103,4 @@ if (window.location.hostname === 'localhost') {
 }
 ```
 
-And then we can use it like usual.
+Then now we can test our firebase locally.

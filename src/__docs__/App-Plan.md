@@ -54,6 +54,7 @@ Inventories:
 - itemName (string)
 - quantity (integer)
 - minQuantity (integer)
+- unit (string)
 - price (integer or string)
 - warning(boolean)
 - createdAt (timestamp)
@@ -136,6 +137,11 @@ Code snippet:
 ## Database Test
 
 Testing Firebase in React Environment using Jest? Should I find it out how? before moving to the next stage.
+Several Options:
+
+- Mocking the Firebase implementation
+- Using [Firebase Emulator] (https://firebase.google.com/docs/emulator-suite)
+  Op
 
 <!-- TOC --><a name="project-draft"></a>
 

@@ -29,21 +29,23 @@ The plan is to have all the data for example inventory in one table, and for the
 
 ### Tables & Fields
 
+Collection ID: Users:
+
+- Document ID: user.uid (string, primary key)
+- Field:
+  - email (string)
+  - displayName (string)
+  - restaurantIDs (array of integers, foreign key to restaurants.id)
+  - type (strings , 'super' or 'user')
+  - createdAt (timestamp)
+  - updatedAt (timestamp)
+
 Restaurants:
 
 - id (integer, primary key)
 - name (string)
 - address (string)
 - userID (integer, foreign key to users.id)
-- createdAt (timestamp)
-- updatedAt (timestamp)
-
-Users:
-
-- id (integer, primary key)
-- email (string)
-- password (string)
-- restaurantIDs (array of integers, foreign key to restaurants.id)
 - createdAt (timestamp)
 - updatedAt (timestamp)
 

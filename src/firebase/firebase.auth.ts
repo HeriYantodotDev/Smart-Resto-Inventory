@@ -2,6 +2,7 @@ import {
   createUserWithEmailAndPassword,
   deleteUser,
   signInWithEmailAndPassword,
+  signOut,
 } from 'firebase/auth';
 import { auth } from './firebase.config';
 
@@ -21,6 +22,10 @@ export async function signInAuthUserWithEmailAndPassword(
   if (!email || !password) return null;
   const user = await signInWithEmailAndPassword(auth, email, password);
   return user;
+}
+
+export async function signOutUser() {
+  await signOut(auth);
 }
 
 // Mostly for test purposes

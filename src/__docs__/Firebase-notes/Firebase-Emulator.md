@@ -99,7 +99,7 @@ export const auth = getAuth(firebaseApp);
 
 if (window.location.hostname === 'localhost') {
   connectAuthEmulator(auth, 'http://127.0.0.1:9099');
-  connectFirestoreEmulator(db, 'http://127.0.0.1', 8080);
+  connectFirestoreEmulator(db, '127.0.0.1', 8080);
 }
 ```
 

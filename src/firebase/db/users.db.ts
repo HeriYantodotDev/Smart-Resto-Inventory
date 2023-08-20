@@ -11,7 +11,7 @@ import { User } from 'firebase/auth';
 import { db } from '../firebase.config';
 import { UserDataType, UserDataOptionalType } from './database.types';
 
-import { FbCollectionEnum } from '../firebaseEnum';
+import { FbCollectionEnum, FbUserTypeEnum } from '../firebaseEnum';
 
 export function createUserDocRefFromAuth(user: User) {
   const userUID = user.uid;
@@ -35,7 +35,7 @@ function generateUserInput(
   const restaurantsIDs: number[] = [];
   const createdAt = new Date();
   const updatedAt = new Date();
-  const type = 'user';
+  const type = FbUserTypeEnum.user;
 
   const userInput: UserDataType = {
     displayName,
@@ -60,11 +60,6 @@ export async function createUserDocument(
 
   if (!userExists) {
     const userInput = generateUserInput(user, userDataOptional);
-    try {
-      await setDoc(userDocRef, userInput);
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.log('error creating the user', error);
-    }
+    await setDoc(userDocRef, userInput);
   }
 }

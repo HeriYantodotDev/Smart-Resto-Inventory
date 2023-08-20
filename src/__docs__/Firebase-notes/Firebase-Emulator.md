@@ -2,12 +2,12 @@
 
 Here's the full guide [guide](https://firebase.google.com/docs/emulator-suite/connect_and_prototype).
 
-## Install the CLI
+# Install the CLI
 
 Thanks to Google, they provide an easy way to install this emulator with NPM.
 `npm install -g firebase-tools`
 
-## Log in and test the Firebase CLI
+# Log in and test the Firebase CLI
 
 Here's the detail: [CLI guidance](https://firebase.google.com/docs/cli#linux).
 
@@ -19,7 +19,7 @@ It is recommended to regularly update the CLI, the way we update it, it's the sa
 
 Here's how to check the version: `firebase --version`.
 
-## Locally initialize a Firebase project
+# Locally initialize a Firebase project
 
 Here's the video : https://www.youtube.com/watch?v=pkgvFNPdiEs
 
@@ -73,7 +73,7 @@ Before continuing, we have to ensure that we have to set up our firebase project
 
   Done! Now let's try it on the app.
 
-## Test Set up
+# Test Set up
 
 In the firebase config file then we set something like this:
 

@@ -1,4 +1,3 @@
-/* eslint-disable import/no-extraneous-dependencies */
 import { initializeApp, FirebaseOptions } from 'firebase/app';
 import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
 import { getAuth, connectAuthEmulator } from 'firebase/auth';

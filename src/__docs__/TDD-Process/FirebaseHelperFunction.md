@@ -1,3 +1,16 @@
+<!-- TOC start (generated with https://github.com/derlin/bitdowntoc) -->
+
+- [Firebase Helper Function](#firebase-helper-function)
+- [Authentication Helper Function](#authentication-helper-function)
+- [Firestore: User Collection: Helper Function](#firestore-user-collection-helper-function)
+  - [User Document Reference](#user-document-reference)
+  - [Create User Collection & Document](#create-user-collection-document)
+  - [Create User Collection Permission](#create-user-collection-permission)
+
+<!-- TOC end -->
+
+<!-- TOC --><a name="firebase-helper-function"></a>
+
 # Firebase Helper Function
 
 > Before We start we have to start the emulator : `firebase emulators:start`
@@ -37,6 +50,8 @@
     connectFirestoreEmulator(db, '127.0.0.1', 8080);
   }
   ```
+
+<!-- TOC --><a name="authentication-helper-function"></a>
 
 # Authentication Helper Function
 
@@ -220,9 +235,13 @@ test('returns null when parameter email or password is empty in signInAuthUserWi
 
 > In fact if the parameter is empty firebase will throw an error, however this is to ensure predictable result in our function.
 
+<!-- TOC --><a name="firestore-user-collection-helper-function"></a>
+
 # Firestore: User Collection: Helper Function
 
 Before we create a React component for creating a user, let's add several helper function for User Collection.
+
+<!-- TOC --><a name="user-document-reference"></a>
 
 ## User Document Reference
 
@@ -285,6 +304,8 @@ We don't pass the document ID then firestore will create a random user ID.
 This is the basic of all our entries to the firestore. We can use the same implementation later for this.
 
 Now let's move on!
+
+<!-- TOC --><a name="create-user-collection-document"></a>
 
 ## Create User Collection & Document
 
@@ -437,3 +458,351 @@ Explanation:
 - Then it calls `userDocRef` to create a user Document Reference,
 - Then it calls `userExists` to check whether a similar document references exist.
 - If it doesn't exist then it creates a new document in Firebase. First it's check whether a collection (users) exists, if not it'll create a new one.
+
+Great, now let's a test case. In this new test case, we'll call the `createUserDocument` without any additional data, therefore we'll modify our test to be like. Also we'll add the `restaurantIDs` field. We forgot to check it.
+
+```ts
+test('saves user data to firestore from auth user without additional information', async () => {
+  const nowInMs = Date.now();
+  const userCredential = await createAuthUserTest();
+  const user = userCredential?.user;
+
+  if (!user) {
+    throw new Error('something wrong with creating a new auth user');
+  }
+
+  await createUserDocument(user);
+
+  const querySnapShot = await getDocumentSnapShotTest();
+
+  const savedUserData = querySnapShot.docs[0].data();
+
+  expect(querySnapShot.size).toBe(1);
+  expect(savedUserData.email).toBe(emailTest);
+  expect(savedUserData.displayName).not.toBeTruthy();
+  expect(savedUserData.type).toBe('user');
+  expect(Array.isArray(savedUserData.restaurantsIDs)).toBe(true);
+  expect(savedUserData.restaurantsIDs.length).toBe(0);
+  expect(savedUserData.createdAt.toDate().getTime()).toBeGreaterThan(nowInMs);
+  expect(savedUserData.updatedAt.toDate().getTime()).toBeGreaterThan(nowInMs);
+});
+
+test('saves user data to firestore from auth user with additional information', async () => {
+  const nowInMs = Date.now();
+  const userCredential = await createAuthUserTest();
+  const user = userCredential?.user;
+  const inputUserData: UserDataOptionalType = {
+    displayName: 'test',
+    type: 'super',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  if (!user) {
+    throw new Error('something wrong with creating a new auth user');
+  }
+
+  await createUserDocument(user, inputUserData);
+
+  const querySnapShot = await getDocumentSnapShotTest();
+
+  const savedUserData = querySnapShot.docs[0].data();
+
+  expect(querySnapShot.size).toBe(1);
+  expect(savedUserData.email).toBe(emailTest);
+  expect(savedUserData.displayName).toBe('test');
+  expect(savedUserData.type).toBe('super');
+  expect(Array.isArray(savedUserData.restaurantsIDs)).toBe(true);
+  expect(savedUserData.restaurantsIDs.length).toBe(0);
+  expect(savedUserData.createdAt.toDate().getTime()).toBeGreaterThan(nowInMs);
+  expect(savedUserData.updatedAt.toDate().getTime()).toBeGreaterThan(nowInMs);
+});
+```
+
+Anyway we haven't worked with the field `restaurantIDs`, we'll work with it later.
+
+<!-- TOC --><a name="create-user-collection-permission"></a>
+
+## Create User Collection Permission
+
+Now we want to ensure this:
+
+> Permissions:
+>
+> ---
+>
+> **Users Collection**
+>
+> - Only authenticated user with user with custom claims: {"role": "admin"} can create users, read and write all users.
+> - Allow users to read and write their own document.
+
+We will use these rules:
+
+```
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userID}/{document=**} {
+      allow get: if request.auth != null && ( request.auth.uid == userID || request.auth.token.role == "admin");
+      allow list: if request.auth != null && ( request.auth.uid == userID || request.auth.token.role == "admin");
+      allow create: if request.auth != null && request.auth.token.role == "admin";
+      allow update: if request.auth != null && ( request.auth.uid == userID || request.auth.token.role == "admin");
+      allow delete: if request.auth != null && request.auth.token.role == "admin";
+    }
+  }
+}
+
+```
+
+Now please update this rule in the : `firestore.rules`. We can add an extension to give highlight for .rules, there are plenties of it in the market.
+
+read this :
+
+- https://firebase.google.com/docs/firestore/security/get-started
+- https://firebase.google.com/docs/firestore/security/rules-structure
+- https://firebase.google.com/docs/firestore/security/rules-conditions
+- https://firebase.google.com/docs/reference/rules/rules
+- https://firebase.google.com/docs/auth/admin/custom-claims
+
+> Notes: read & write can be broken into several operation:
+
+Read:
+
+- get
+- list
+
+write:
+
+- create
+- update
+- delete
+
+However we will broke our previous implementation, therefore let's run our next test first, then we'll fix it later.
+
+First we have to create an Auth User first for super user , let's say like this:
+
+```ts
+{
+  email: 'supertest@mail.com',
+  password: 'Always@123@Happy'
+  customClaims: {"role": "admin"}
+}
+```
+
+We have to create this directly from our console. And in the production is the same, we have to create the auth user and also the user entries for the super user.
+
+Read [this](https://firebase.google.com/docs/auth/admin/custom-claims) for more detail.
+
+> TIPS: Export - Import
+
+You don't have to create in manually in the emulator console. That would be crazy right? To create the user every time we run the test.
+
+- First let's create the auth user and also the the User Collection that contains the superUser.
+
+- Then let's export it. Here's the guide: [guide](https://firebase.google.com/docs/emulator-suite/install_and_configure)
+
+  ```bash
+  firebase emulators:export <folder>
+  ```
+
+in this case I'm exporting it to folder in our working directory named `emulators`. So `firebase emulators:export emulators`
+
+Great, in those exported file there's a super user already. Now stop the emulator and then change add the command to the package.json:
+
+```json
+"emulator:start": "firebase emulators:start --import=emulators",
+```
+
+Now every time we'd like to start the emulator we only need to type : `npm run emulator`.
+
+Now we have to modify our test a little bit for beforeEach:
+
+```ts
+async function deleteUserCollectionExceptSuper() {
+  const collectionRef = collection(db, FbCollectionEnum.users);
+  const q = query(collectionRef);
+  const querySnapshot = await getDocs(q);
+
+  const promises: Promise<void>[] = [];
+
+  querySnapshot.docs.forEach((doc) => {
+    const { email } = doc.data();
+    if (email !== 'supertest@mail.com') {
+      promises.push(deleteDoc(doc.ref));
+    }
+  });
+
+  await Promise.all(promises);
+}
+```
+
+Adn since we already imply our new rules, before we delete the collection, we have to sign in first with super user.
+
+```ts
+beforeEach(async () => {
+  try {
+    await deleteAuthUser(emailTest, passTest);
+    await signInAuthUserWithEmailAndPassword(superEmail, superPassword);
+    await deleteUserCollectionExceptSuper();
+    await signOutUser();
+  } catch (err) {
+    //
+  }
+});
+```
+
+As you can see we no longer using using Rest API to reset the firebase, instead we manually delete the User Collection. Why? Because we need this super User to be exist before we implement the rules. Without super user, we can't create the user.
+
+Then we should change last two tests.
+First we change the function named: `getDocumentSnapShotTest`:
+
+```ts
+async function getDocumentSnapShotTest(email: string) {
+  const collectionRef = collection(db, FbCollectionEnum.users);
+
+  const q = query(collectionRef, where('email', '==', email));
+
+  const querySnapShot = await getDocs(q);
+
+  return querySnapShot;
+}
+```
+
+The function above we are looking for certain document that has certain email. Then we use it in our last two tests. Also since we already change our rules above, we have to modify our previous two tests and several tests.
+
+Here are the previous two tests:
+
+```ts
+test('[createUserDocument]saves user data to firestore with Admin User Credential without additional information', async () => {
+  const nowInMs = Date.now();
+  const userCredential = await createAuthUserTest();
+  const user = userCredential?.user;
+
+  if (!user) {
+    throw new Error('something wrong with creating a new auth user');
+  }
+
+  // Sign In with Super User
+  await signInAuthUserWithEmailAndPassword(superEmail, superPassword);
+
+  await createUserDocument(user);
+
+  const querySnapShot = await getDocumentSnapShotTest(emailTest);
+  const savedUserData = querySnapShot.docs[0].data();
+
+  expect(savedUserData.email).toBe(emailTest);
+  expect(savedUserData.displayName).not.toBeTruthy();
+  expect(savedUserData.type).toBe('user');
+  expect(Array.isArray(savedUserData.restaurantsIDs)).toBe(true);
+  expect(savedUserData.restaurantsIDs.length).toBe(0);
+  expect(savedUserData.createdAt.toDate().getTime()).toBeGreaterThan(nowInMs);
+  expect(savedUserData.updatedAt.toDate().getTime()).toBeGreaterThan(nowInMs);
+});
+
+test('[createUserDocument]saves user data to firestore with Admin User Credential with additional information', async () => {
+  const nowInMs = Date.now();
+  const userCredential = await createAuthUserTest();
+  const user = userCredential?.user;
+
+  const inputUserData: UserDataOptionalType = {
+    displayName: 'test',
+    type: 'user',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  if (!user) {
+    throw new Error('something wrong with creating a new auth user');
+  }
+
+  // Sign In with Super User
+  await signInAuthUserWithEmailAndPassword(superEmail, superPassword);
+
+  await createUserDocument(user, inputUserData);
+
+  const querySnapShot = await getDocumentSnapShotTest(emailTest);
+  const savedUserData = querySnapShot.docs[0].data();
+
+  expect(savedUserData.email).toBe(emailTest);
+  expect(savedUserData.displayName).toBe('test');
+  expect(savedUserData.type).toBe('user');
+  expect(Array.isArray(savedUserData.restaurantsIDs)).toBe(true);
+  expect(savedUserData.restaurantsIDs.length).toBe(0);
+  expect(savedUserData.createdAt.toDate().getTime()).toBeGreaterThan(nowInMs);
+  expect(savedUserData.updatedAt.toDate().getTime()).toBeGreaterThan(nowInMs);
+});
+```
+
+As you can see the test above we're signing with the Super User first before creating the User Collection Data.
+
+Great now let's add the error case for user without any authentication, and also user with normal user authentication:
+
+```ts
+test('[createUserDocument]returns error "permission-denied" when try to save user to firestore without any authentication', async () => {
+  const userCredential = await createAuthUserTest();
+
+  const user = userCredential?.user;
+
+  if (!user) {
+    throw new Error('something wrong with creating a new auth user');
+  }
+
+  let errorCode: string = '';
+  try {
+    await createUserDocument(user);
+  } catch (err) {
+    if (err instanceof FirebaseError) {
+      errorCode = err.code;
+    }
+  }
+
+  expect(errorCode).toBe(FbEnum.errorPermissionDenied);
+});
+
+test('[createUserDocument]returns error "permission-denied" when try to save user to firestore with normal user credential', async () => {
+  const userCredential = await createAuthUserTest();
+
+  const user = userCredential?.user;
+
+  if (!user) {
+    throw new Error('something wrong with creating a new auth user');
+  }
+
+  let errorCode: string = '';
+
+  await signInAuthUserWithEmailAndPassword(emailTest, passTest);
+
+  try {
+    await createUserDocument(user);
+  } catch (err) {
+    if (err instanceof FirebaseError) {
+      errorCode = err.code;
+    }
+  }
+
+  expect(errorCode).toBe(FbEnum.errorPermissionDenied);
+});
+```
+
+Don't forget to update our enum:
+
+```ts
+export enum FbEnum {
+  errorAuthUserNotFound = 'auth/user-not-found',
+  errorAuthEmailInUse = 'auth/email-already-in-use',
+  errorPermissionDenied = 'permission-denied',
+}
+```
+
+The enum above is to ensure that we're saving the correct error Code that we're going to use. We don't have to list them all, just for the common one that we're going to use.
+
+And, Voilà! We are ready now for checking for other user permissions like get, list, update, and delete.
+
+Before moving on, let's deploy our current rule to the firebase Production:
+
+```bash
+firebase deploy --only firestore:rules
+```
+
+Read this for more detail information : https://firebase.google.com/docs/rules/manage-deploy

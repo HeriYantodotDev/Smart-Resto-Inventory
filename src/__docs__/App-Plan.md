@@ -4,6 +4,7 @@
 - [Database](#database)
   - [Database Set Up (Firebase)](#database-set-up-firebase)
     - [Tables & Fields](#tables-fields)
+    - [Authorization rules](#authorization-rules)
   - [Database Test](#database-test)
 - [Project Draft](#project-draft)
 
@@ -14,6 +15,25 @@
 # Planning
 
 I'm creating a plan for this app from the architecture, routes/pages, database, styling, and etc.
+
+Working On:
+
+- 🚧 Test and add CRUD functionality for User Collections helper Functions
+
+To Do List:
+
+- 📝 Restaurant Collection skeleton
+- 📝 Restaurant & User Relationship + Permission
+- 📝 Restaurant Collection helper Functions: CRUD functionality. Functions + Test
+- And many more
+
+Done List:
+
+- ✅ Firebase Emulator set up with Jest.
+- ✅ Firebase Auth Helper Functions. All functions are tested.
+- ✅ User Collection Permission: set up admin user.
+
+Parking Lot:
 
 <!-- TOC --><a name="database"></a>
 
@@ -36,7 +56,7 @@ Collection ID: Users:
   - email (string)
   - displayName (string)
   - restaurantIDs (array of integers, foreign key to restaurants.id)
-  - type (strings , 'super' or 'user')
+  - type (strings , 'admin' or 'user')
   - createdAt (timestamp)
   - updatedAt (timestamp)
 
@@ -108,31 +128,18 @@ cashFlowsLogs
 - createdAt (timestamp)
 - updatedAt (timestamp)
 
-Authorization rules:
+<!-- TOC --><a name="authorization-rules"></a>
 
-- Only user that is authenticated & linked with the restaurants can Read & write for the restaurant and also the inventories.
-- Other users that are not authenticated and also linked with restaurants can't see inventories table and also restaurant table
+### Authorization rules
 
-Code snippet:
-
-```
-{
-  "rules": {
-    ".read": "auth != null",
-    ".write": "auth != null",
-
-    "restaurants": {
-      ".read": "auth != null && root.child('users').child(auth.uid).child('restaurant_ids').child(data.child('id').val()).exists()",
-      ".write": "auth != null && root.child('users').child(auth.uid).child('restaurant_ids').child(data.child('id').val()).exists()"
-    },
-
-    "inventories": {
-      ".read": "auth != null && root.child('users').child(auth.uid).child('restaurant_ids').child(data.child('restaurant_id').val()).exists()",
-      ".write": "auth != null && root.child('users').child(auth.uid).child('restaurant_ids').child(data.child('restaurant_id').val()).exists()"
-    }
-  }
-}
-```
+> Permissions:
+>
+> ---
+>
+> **Users Collection**
+>
+> - Only authenticated user with user with custom claims: {"role": "admin"} can create users, read and write all users.
+> - Allow users to read and write their own document.
 
 <!-- TOC --><a name="database-test"></a>
 
@@ -142,8 +149,7 @@ Code snippet:
 Several Options:
 
 - Mocking the Firebase implementation
-- Using [Firebase Emulator] (https://firebase.google.com/docs/emulator-suite)
-  Op
+- ✅Using [Firebase Emulator] (https://firebase.google.com/docs/emulator-suite) (I'm going with this)
 
 <!-- TOC --><a name="project-draft"></a>
 

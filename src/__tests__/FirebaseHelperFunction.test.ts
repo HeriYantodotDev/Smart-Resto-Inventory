@@ -1,9 +1,16 @@
-/* eslint-disable import/no-extraneous-dependencies */
 import '@testing-library/jest-dom';
 // Polyfill "window.fetch" used in the React component.
 import 'whatwg-fetch';
 import { FirebaseError } from 'firebase/app';
-import { getDocs, query, collection } from 'firebase/firestore';
+import {
+  getDocs,
+  query,
+  where,
+  collection,
+  deleteDoc,
+  // DocumentReference,
+  // DocumentData,
+} from 'firebase/firestore';
 import {
   createAuthUserWithEmailAndPassword,
   deleteAuthUser,
@@ -23,21 +30,49 @@ import { UserDataOptionalType } from '../firebase/db/database.types';
 
 const emailTest = 'test@gmail.com';
 const passTest = 'Drone@123';
-const projectId = 'smart-resto-inventory';
-const resetURL = `http://localhost:8080/emulator/v1/projects/${projectId}/databases/(default)/documents`;
+
+const superEmail = 'supertest@mail.com';
+const superPassword = 'Always@123@Happy';
+
+/* Life Saver Notes for the future implementation
+  const projectId = 'smart-resto-inventory';
+  const resetURL = `http://localhost:8080/emulator/v1/projects/${projectId}/databases/(default)/documents`;
+  ==> call this in the beforeEach await fetch(resetURL, { method: 'DELETE' });
+*/
+async function deleteUserCollectionExceptSuper() {
+  const collectionRef = collection(db, FbCollectionEnum.users);
+  const q = query(collectionRef);
+  const querySnapshot = await getDocs(q);
+
+  const promises: Promise<void>[] = [];
+
+  querySnapshot.docs.forEach((doc) => {
+    const { email } = doc.data();
+    if (email !== 'supertest@mail.com') {
+      promises.push(deleteDoc(doc.ref));
+    }
+  });
+
+  await Promise.all(promises);
+}
 
 beforeEach(async () => {
   try {
     await deleteAuthUser(emailTest, passTest);
-    await fetch(resetURL, { method: 'DELETE' });
+    await signInAuthUserWithEmailAndPassword(superEmail, superPassword);
+    await deleteUserCollectionExceptSuper();
+    await signOutUser();
   } catch (err) {
     //
   }
 });
 
 async function createAuthUserTest() {
-  const user = await createAuthUserWithEmailAndPassword(emailTest, passTest);
-  return user;
+  const userCredential = await createAuthUserWithEmailAndPassword(
+    emailTest,
+    passTest
+  );
+  return userCredential;
 }
 
 async function signInWithAuthUserTest() {
@@ -48,10 +83,10 @@ async function signInWithAuthUserTest() {
   return userCredential;
 }
 
-async function getDocumentSnapShotTest() {
+async function getDocumentSnapShotTest(email: string) {
   const collectionRef = collection(db, FbCollectionEnum.users);
 
-  const q = query(collectionRef);
+  const q = query(collectionRef, where('email', '==', email));
 
   const querySnapShot = await getDocs(q);
 
@@ -145,13 +180,85 @@ describe('Firestore: User Collection Helper Function', () => {
     expect(error).toBe(false);
   });
 
-  test('saves user data to firestore from auth user', async () => {
+  test('[createUserDocument]returns error "permission-denied" when try to save user to firestore without any authentication', async () => {
+    const userCredential = await createAuthUserTest();
+
+    const user = userCredential?.user;
+
+    if (!user) {
+      throw new Error('something wrong with creating a new auth user');
+    }
+
+    let errorCode: string = '';
+    try {
+      await createUserDocument(user);
+    } catch (err) {
+      if (err instanceof FirebaseError) {
+        errorCode = err.code;
+      }
+    }
+
+    expect(errorCode).toBe(FbEnum.errorPermissionDenied);
+  });
+
+  test('[createUserDocument]returns error "permission-denied" when try to save user to firestore with normal user credential', async () => {
+    const userCredential = await createAuthUserTest();
+
+    const user = userCredential?.user;
+
+    if (!user) {
+      throw new Error('something wrong with creating a new auth user');
+    }
+
+    let errorCode: string = '';
+
+    await signInAuthUserWithEmailAndPassword(emailTest, passTest);
+
+    try {
+      await createUserDocument(user);
+    } catch (err) {
+      if (err instanceof FirebaseError) {
+        errorCode = err.code;
+      }
+    }
+
+    expect(errorCode).toBe(FbEnum.errorPermissionDenied);
+  });
+
+  test('[createUserDocument]saves user data to firestore with Admin User Credential without additional information', async () => {
     const nowInMs = Date.now();
     const userCredential = await createAuthUserTest();
     const user = userCredential?.user;
+
+    if (!user) {
+      throw new Error('something wrong with creating a new auth user');
+    }
+
+    // Sign In with Super User
+    await signInAuthUserWithEmailAndPassword(superEmail, superPassword);
+
+    await createUserDocument(user);
+
+    const querySnapShot = await getDocumentSnapShotTest(emailTest);
+    const savedUserData = querySnapShot.docs[0].data();
+
+    expect(savedUserData.email).toBe(emailTest);
+    expect(savedUserData.displayName).not.toBeTruthy();
+    expect(savedUserData.type).toBe('user');
+    expect(Array.isArray(savedUserData.restaurantsIDs)).toBe(true);
+    expect(savedUserData.restaurantsIDs.length).toBe(0);
+    expect(savedUserData.createdAt.toDate().getTime()).toBeGreaterThan(nowInMs);
+    expect(savedUserData.updatedAt.toDate().getTime()).toBeGreaterThan(nowInMs);
+  });
+
+  test('[createUserDocument]saves user data to firestore with Admin User Credential with additional information', async () => {
+    const nowInMs = Date.now();
+    const userCredential = await createAuthUserTest();
+    const user = userCredential?.user;
+
     const inputUserData: UserDataOptionalType = {
       displayName: 'test',
-      type: 'super',
+      type: 'user',
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -160,16 +267,19 @@ describe('Firestore: User Collection Helper Function', () => {
       throw new Error('something wrong with creating a new auth user');
     }
 
+    // Sign In with Super User
+    await signInAuthUserWithEmailAndPassword(superEmail, superPassword);
+
     await createUserDocument(user, inputUserData);
 
-    const querySnapShot = await getDocumentSnapShotTest();
-
+    const querySnapShot = await getDocumentSnapShotTest(emailTest);
     const savedUserData = querySnapShot.docs[0].data();
 
-    expect(querySnapShot.size).toBe(1);
     expect(savedUserData.email).toBe(emailTest);
     expect(savedUserData.displayName).toBe('test');
-    expect(savedUserData.type).toBe('super');
+    expect(savedUserData.type).toBe('user');
+    expect(Array.isArray(savedUserData.restaurantsIDs)).toBe(true);
+    expect(savedUserData.restaurantsIDs.length).toBe(0);
     expect(savedUserData.createdAt.toDate().getTime()).toBeGreaterThan(nowInMs);
     expect(savedUserData.updatedAt.toDate().getTime()).toBeGreaterThan(nowInMs);
   });

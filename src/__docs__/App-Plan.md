@@ -18,7 +18,11 @@ I'm creating a plan for this app from the architecture, routes/pages, database, 
 
 Working On:
 
-- 🚧 Test and add CRUD functionality for User Collections helper Functions
+- 🚧 Test and add CRUD functionality for User Collections helper Functions:
+  - 🚧 create & test the `deleteUserDocument` function
+  - ✅ Create & Test the `updateUserDocument` function.
+  - ✅ Create & Test the `getUser` function.
+  - ✅ Create & Test the `getAllUsers` function.
 
 To Do List:
 
@@ -138,8 +142,8 @@ cashFlowsLogs
 >
 > **Users Collection**
 >
-> - Only authenticated user with user with custom claims: {"role": "admin"} can create users, read and write all users.
-> - Allow users to read and write their own document.
+> - Only authenticated user with custom claims: {"role": "admin"} can create users, read and write all users.
+> - Allow users to read only their own document.
 
 <!-- TOC --><a name="database-test"></a>
 

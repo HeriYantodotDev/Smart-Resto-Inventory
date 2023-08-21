@@ -6,6 +6,10 @@
   - [User Document Reference](#user-document-reference)
   - [Create User Collection & Document](#create-user-collection-document)
   - [Create User Collection Permission](#create-user-collection-permission)
+  - [Testing User Collection Permission: Get, List, Update, Delete](#testing-user-collection-permission-get-list-update-delete)
+    - [Get & List ](#get-list)
+    - [Update](#update)
+    - [Delete](#delete)
 
 <!-- TOC end -->
 
@@ -806,3 +810,382 @@ firebase deploy --only firestore:rules
 ```
 
 Read this for more detail information : https://firebase.google.com/docs/rules/manage-deploy
+
+<!-- TOC --><a name="testing-user-collection-permission-get-list-update-delete"></a>
+
+## Testing User Collection Permission: Get, List, Update, Delete
+
+<!-- TOC --><a name="get-list"></a>
+
+### Get & List
+
+Now let's test for get and list permission.
+
+Before we start we have to revise our rules permission to be like this :
+
+```ts
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userID}/{document=**} {
+      allow get: if request.auth != null && ( request.auth.uid == userID || request.auth.token.role == "admin");
+      allow list: if request.auth != null && request.auth.token.role == "admin";
+      allow create: if request.auth != null && request.auth.token.role == "admin";
+      allow update: if request.auth != null && ( request.auth.uid == userID || request.auth.token.role == "admin");
+      allow delete: if request.auth != null && request.auth.token.role == "admin";
+    }
+  }
+}
+```
+
+We change the rules for `list` to be like this `allow list: if request.auth != null && request.auth.token.role == "admin";` since the previous rule doesn't make sense. request.auth.uid == userID doesn't compatible with listing multiple users.
+
+Then let's deploy our rules : `npm run firestore:rules:deploy` or run on the cli `firebase deploy --only firestore:rules`.
+
+Now here's the test to check for the rules:
+
+```ts
+describe('[getAllUsers] function', () => {
+  test('returns error "permission-denied" when try to get all users without any authentication', async () => {
+    await createUserCollectionFromAuthTest();
+    await signOutUser();
+    let errorCode = '';
+    try {
+      await getAllUsers();
+    } catch (err) {
+      if (err instanceof FirebaseError) {
+        errorCode = err.code;
+      }
+    }
+    expect(errorCode).toBe(FbEnum.errorPermissionDenied);
+  });
+
+  test('returns error "permission-denied" when try to get all users with normal user authentication', async () => {
+    await createUserCollectionFromAuthTest();
+    await signOutUser();
+    await signInWithAuthUserTest(emailTest, passTest);
+    let errorCode = '';
+    try {
+      await getAllUsers();
+    } catch (err) {
+      if (err instanceof FirebaseError) {
+        errorCode = err.code;
+      }
+    }
+
+    expect(errorCode).toBe(FbEnum.errorPermissionDenied);
+  });
+
+  test('returns all Users when try to get all users with admin user authentication', async () => {
+    await createUserCollectionFromAuthTest();
+    let querySnapShot: QuerySnapshot<DocumentData, DocumentData> | null = null;
+    let errorCode = '';
+    try {
+      querySnapShot = await getAllUsers();
+    } catch (err) {
+      if (err instanceof FirebaseError) {
+        errorCode = err.code;
+      }
+    }
+
+    if (!querySnapShot) {
+      throw new Error('something wrong with the firestore query');
+    }
+
+    const emailArrayResponse: string[] = [];
+    querySnapShot.docs.forEach((data) => {
+      const { email } = data.data();
+      emailArrayResponse.push(email);
+    });
+
+    expect(querySnapShot.docs.length).toBe(2);
+    expect(errorCode).toBeFalsy();
+    expect(emailArrayResponse.sort()).toEqual(testEmailArray.sort());
+  });
+});
+```
+
+Now let's add test and a function named `getUser` :
+
+```ts
+describe('[getUser] function', () => {
+  test('returns error "permission-denied" when try to get a specific user document without any authentication', async () => {
+    const newUser = await createUserCollectionFromAuthTest();
+    await signOutUser();
+    let errorCode = '';
+    try {
+      await getUser(newUser.uid);
+    } catch (err) {
+      if (err instanceof FirebaseError) {
+        errorCode = err.code;
+      }
+    }
+    expect(errorCode).toBe(FbEnum.errorPermissionDenied);
+  });
+
+  test('returns error "permission-denied" when try to get other user document from normal user authentication', async () => {
+    await createUserCollectionFromAuthTest();
+    const superUser = await signOutUser();
+    await signInAuthUserWithEmailAndPassword(emailTest, passTest);
+    let errorCode = '';
+    if (!superUser) {
+      throw new Error('Something wrong with the sign out user function');
+    }
+    try {
+      await getUser(superUser);
+    } catch (err) {
+      if (err instanceof FirebaseError) {
+        errorCode = err.code;
+      }
+    }
+    expect(errorCode).toBe(FbEnum.errorPermissionDenied);
+  });
+
+  test('returns user document when try to get other its own user document data from normal user authentication', async () => {
+    const nowInMs = Date.now();
+    const newUser = await createUserCollectionFromAuthTest();
+    await signOutUser();
+    await signInAuthUserWithEmailAndPassword(emailTest, passTest);
+    let errorCode = '';
+    let docSnap: DocumentSnapshot<DocumentData, DocumentData> | null = null;
+
+    try {
+      docSnap = await getUser(newUser.uid);
+    } catch (err) {
+      if (err instanceof FirebaseError) {
+        errorCode = err.code;
+      }
+    }
+    const document = docSnap?.data();
+    const email = document?.email;
+    const createdAt = document?.createdAt.toDate().getTime();
+    const updatedAt = document?.updatedAt.toDate().getTime();
+    const type = document?.type;
+    expect(errorCode).toBeFalsy();
+    expect(email).toBe(emailTest);
+    expect(type).toBe('user');
+    expect(createdAt).toBeGreaterThanOrEqual(nowInMs);
+    expect(updatedAt).toBeGreaterThanOrEqual(nowInMs);
+  });
+
+  test('returns user document when try to get other other user document data from admin user authentication', async () => {
+    const nowInMs = Date.now();
+    const newUser = await createUserCollectionFromAuthTest();
+    await signOutUser();
+    await signInAuthUserWithEmailAndPassword(superEmail, superPassword);
+    let errorCode = '';
+    let docSnap: DocumentSnapshot<DocumentData, DocumentData> | null = null;
+
+    try {
+      docSnap = await getUser(newUser.uid);
+    } catch (err) {
+      if (err instanceof FirebaseError) {
+        errorCode = err.code;
+      }
+    }
+    const document = docSnap?.data();
+    const email = document?.email;
+    const createdAt = document?.createdAt.toDate().getTime();
+    const updatedAt = document?.updatedAt.toDate().getTime();
+    const type = document?.type;
+    expect(errorCode).toBeFalsy();
+    expect(email).toBe(emailTest);
+    expect(type).toBe('user');
+    expect(createdAt).toBeGreaterThanOrEqual(nowInMs);
+    expect(updatedAt).toBeGreaterThanOrEqual(nowInMs);
+  });
+});
+```
+
+Here's the implementation:
+
+```ts
+export function createUserDocRefFromUserUID(userUID: string) {
+  const userCollectionRef = collection(db, FbCollectionEnum.users);
+  const userDocRef = doc(userCollectionRef, userUID);
+  return userDocRef;
+}
+
+export async function getUser(userUID: string) {
+  const userDocRef = createUserDocRefFromUserUID(userUID);
+  const docSnap = getDoc(userDocRef);
+  return docSnap;
+}
+```
+
+<!-- TOC --><a name="update"></a>
+
+### Update
+
+Great now let's add test for update and delete.
+
+Before we start creating the test and the implementation, let's change the rules to be like this:
+
+```ts
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userID}/{document=**} {
+      allow get: if request.auth != null && ( request.auth.uid == userID || request.auth.token.role == "admin");
+      allow list: if request.auth != null && request.auth.token.role == "admin";
+      allow create: if request.auth != null && request.auth.token.role == "admin";
+      allow update: if request.auth != null && request.auth.token.role == "admin";
+      allow delete: if request.auth != null && request.auth.token.role == "admin";
+    }
+  }
+}
+```
+
+Previously I created a rule in which the user and change their own data, however the project requirement is to ensure that a user can't access other user data including later in restaurant document. Therefore only admin user can modify the user and create a relationship between the user and the restaurant.
+
+Then let's deploy the function to firestore production.
+
+Great! Now let's add the test for user update. There are four test cases, we check the permission, and also when update the user, we only update the field that we specify.
+
+```ts
+describe('[updateUserDocument] function', () => {
+  test('returns error "permission-denied" when try to modify user document without any authentication', async () => {
+    const newUser = await createUserCollectionFromAuthTest();
+    await signOutUser();
+    let errorCode = '';
+
+    const inputUserData: UserDataOptionalType = {
+      displayName: 'updated-test',
+    };
+
+    try {
+      await updateUserDocument(newUser.uid, inputUserData);
+    } catch (err) {
+      if (err instanceof FirebaseError) {
+        errorCode = err.code;
+      }
+    }
+
+    expect(errorCode).toBe(FbEnum.errorPermissionDenied);
+  });
+
+  test('returns error "permission-denied" when try to modify other user document when login with normal user authentication', async () => {
+    await createUserCollectionFromAuthTest();
+    const superUserUID = await signOutUser();
+    await signInAuthUserWithEmailAndPassword(emailTest, passTest);
+
+    if (!superUserUID) {
+      throw new Error('Something wrong with the signOut');
+    }
+
+    let errorCode = '';
+
+    const inputUserData: UserDataOptionalType = {
+      displayName: 'updated-test',
+    };
+
+    try {
+      await updateUserDocument(superUserUID, inputUserData);
+    } catch (err) {
+      if (err instanceof FirebaseError) {
+        errorCode = err.code;
+      }
+    }
+
+    expect(errorCode).toBe(FbEnum.errorPermissionDenied);
+  });
+
+  test('returns error "permission-denied" when try to modify its own user document when login with normal user authentication', async () => {
+    const newUser = await createUserCollectionFromAuthTest();
+    await signOutUser();
+    await signInAuthUserWithEmailAndPassword(emailTest, passTest);
+
+    let errorCode = '';
+
+    const inputUserData: UserDataOptionalType = {
+      displayName: 'updated-test',
+    };
+
+    try {
+      await updateUserDocument(newUser.uid, inputUserData);
+    } catch (err) {
+      if (err instanceof FirebaseError) {
+        errorCode = err.code;
+      }
+    }
+
+    expect(errorCode).toBe(FbEnum.errorPermissionDenied);
+  });
+
+  test('updates user document with only the field that submitted (not overwritten the doc) when login with admin user authentication', async () => {
+    const newUser = await createUserCollectionFromAuthTest();
+
+    const querySnapShotBefore = await getDocumentSnapShotTest(emailTest);
+    const savedUserDataBefore = querySnapShotBefore.docs[0].data();
+
+    const {
+      email: emailBefore,
+      type: typeBefore,
+      restaurantsIDs: restaurantsIDsBefore,
+      createdAt: createdAtBefore,
+      updatedAt: updatedAtBefore,
+    } = savedUserDataBefore;
+
+    let errorCode = '';
+
+    const inputUserData: UserDataOptionalType = {
+      displayName: 'updated-test',
+    };
+
+    try {
+      await updateUserDocument(newUser.uid, inputUserData);
+    } catch (err) {
+      if (err instanceof FirebaseError) {
+        errorCode = err.code;
+      }
+    }
+
+    const querySnapShot = await getDocumentSnapShotTest(emailTest);
+    const savedUserData = querySnapShot.docs[0].data();
+    const { email, type, restaurantsIDs, createdAt, updatedAt, displayName } =
+      savedUserData;
+
+    expect(errorCode).toBeFalsy();
+    // checking the previous data that should not be changed
+    expect(email).toBe(emailBefore);
+    expect(type).toBe(typeBefore);
+    expect(Array.isArray(restaurantsIDs)).toBe(true);
+    expect(restaurantsIDs.length).toBe(restaurantsIDsBefore.length);
+    expect(createdAt.toDate().getTime()).toBe(
+      createdAtBefore.toDate().getTime()
+    );
+
+    // checking the new updated data
+    expect(displayName).toBe('updated-test');
+    expect(updatedAt.toDate().getTime()).toBeGreaterThan(
+      updatedAtBefore.toDate().getTime()
+    );
+  });
+});
+```
+
+and here's the implementation:
+
+```ts
+export async function updateUserDocument(
+  userUID: string,
+  userInput: UserDataOptionalType
+) {
+  const userDocRef = createUserDocRefFromUserUID(userUID);
+
+  const userInputWithUpdatedAt: UserDataOptionalType = {
+    ...userInput,
+    updatedAt: new Date(),
+  };
+
+  await setDoc(userDocRef, userInputWithUpdatedAt, { merge: true });
+}
+```
+
+Okay now this is the last one about delete User Document.
+
+<!-- TOC --><a name="delete"></a>
+
+### Delete

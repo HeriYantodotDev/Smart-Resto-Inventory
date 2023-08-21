@@ -17,7 +17,7 @@ import {
   deleteAuthUser,
   signInAuthUserWithEmailAndPassword,
   signOutUser,
-} from '../firebase/firebase.auth';
+} from '../service/firebase/firebase.auth';
 
 import {
   createUserDocRefFromAuth,
@@ -25,12 +25,19 @@ import {
   getAllUsers,
   getUser,
   updateUserDocument,
-} from '../firebase/db/users.db';
+  addUserRestaurantsIDs,
+  removeUserRestaurantsIDs,
+} from '../service/firebase/db/users.db';
 
-import { auth, db } from '../firebase/firebase.config';
+import { auth, db } from '../service/firebase/firebase.config';
 
-import { FbEnum, FbCollectionEnum } from '../firebase/firebaseEnum';
-import { UserDataOptionalType } from '../firebase/db/database.types';
+import { FbEnum, FbCollectionEnum } from '../service/utils/enums/firebaseEnum';
+import {
+  UserDataOptionalType,
+  UserDataRestaurantsIdsOnly,
+} from '../service/firebase/db/database.types';
+
+import { ErrorUserUpdateWithRestaurantIDs } from '../service/utils/Errors/ErrorClass';
 
 const emailTest = 'test@gmail.com';
 const passTest = 'Drone@123';
@@ -563,6 +570,107 @@ describe('Firestore: User Collection Helper Function', () => {
       expect(displayName).toBe('updated-test');
       expect(updatedAt.toDate().getTime()).toBeGreaterThan(
         updatedAtBefore.toDate().getTime()
+      );
+    });
+
+    test(`returns error "${FbEnum.errorUserUpdateWithRestaurantIDs}" and no change when try to update the restaurantIDs field when login with admin user authentication`, async () => {
+      const newUser = await createUserCollectionFromAuthTest();
+
+      const querySnapShotBefore = await getDocumentSnapShotTest(emailTest);
+      const savedUserDataBefore = querySnapShotBefore.docs[0].data();
+
+      const { restaurantsIDs: restaurantsIDsBefore } = savedUserDataBefore;
+
+      let errorCode = '';
+
+      const inputUserData: UserDataOptionalType = {
+        restaurantsIDs: ['restaurantID1', 'restaurantID2'],
+      };
+
+      try {
+        await updateUserDocument(newUser.uid, inputUserData);
+      } catch (err) {
+        if (err instanceof ErrorUserUpdateWithRestaurantIDs) {
+          errorCode = err.code;
+        }
+      }
+
+      const querySnapShot = await getDocumentSnapShotTest(emailTest);
+      const savedUserData = querySnapShot.docs[0].data();
+      const { restaurantsIDs } = savedUserData;
+
+      expect(errorCode).toBe(FbEnum.errorUserUpdateWithRestaurantIDs);
+      // checking the previous data that should not be changed
+      expect(Array.isArray(restaurantsIDs)).toBe(true);
+      expect(restaurantsIDs.length).toBe(restaurantsIDsBefore.length);
+      expect(JSON.stringify(restaurantsIDs.sort())).toBe(
+        JSON.stringify(restaurantsIDsBefore.sort())
+      );
+    });
+  });
+
+  describe('[addUserRestaurantsIDs] and [removeUserRestaurantsIDs] function', () => {
+    test(`adds elements in restaurantsIDs array when try to update the restaurantIDs field when login with admin user authentication`, async () => {
+      const newUser = await createUserCollectionFromAuthTest();
+
+      let errorCode = '';
+
+      const restaurantsIDs = ['restaurantID1', 'restaurantID2'];
+
+      const inputUserData: UserDataRestaurantsIdsOnly = {
+        restaurantsIDs,
+      };
+
+      try {
+        await addUserRestaurantsIDs(newUser.uid, inputUserData);
+      } catch (err) {
+        if (err instanceof ErrorUserUpdateWithRestaurantIDs) {
+          errorCode = err.code;
+        }
+      }
+
+      const querySnapShot = await getDocumentSnapShotTest(emailTest);
+      const savedUserData = querySnapShot.docs[0].data();
+      const { restaurantsIDs: restaurantsIDsResponse } = savedUserData;
+
+      expect(errorCode).toBeFalsy();
+      expect(Array.isArray(restaurantsIDs)).toBe(true);
+      expect(restaurantsIDsResponse.length).toBe(2);
+      expect(JSON.stringify(restaurantsIDsResponse.sort())).toBe(
+        JSON.stringify(restaurantsIDs.sort())
+      );
+    });
+
+    test(`removes elements in restaurantsIDs array when try to update the restaurantIDs field when login with admin user authentication`, async () => {
+      const newUser = await createUserCollectionFromAuthTest({
+        restaurantsIDs: ['restaurantID1', 'restaurantID2', 'restaurantsID3'],
+      });
+
+      let errorCode = '';
+
+      const restaurantsIDs = ['restaurantID1', 'restaurantID2'];
+
+      const inputUserData: UserDataRestaurantsIdsOnly = {
+        restaurantsIDs,
+      };
+
+      try {
+        await removeUserRestaurantsIDs(newUser.uid, inputUserData);
+      } catch (err) {
+        if (err instanceof ErrorUserUpdateWithRestaurantIDs) {
+          errorCode = err.code;
+        }
+      }
+
+      const querySnapShot = await getDocumentSnapShotTest(emailTest);
+      const savedUserData = querySnapShot.docs[0].data();
+      const { restaurantsIDs: restaurantsIDsResponse } = savedUserData;
+
+      expect(errorCode).toBeFalsy();
+      expect(Array.isArray(restaurantsIDs)).toBe(true);
+      expect(restaurantsIDsResponse.length).toBe(1);
+      expect(JSON.stringify(restaurantsIDsResponse.sort())).toBe(
+        JSON.stringify(['restaurantsID3'])
       );
     });
   });

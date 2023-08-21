@@ -25,7 +25,9 @@ export async function signInAuthUserWithEmailAndPassword(
 }
 
 export async function signOutUser() {
+  const signOutUserUID = auth.currentUser?.uid;
   await signOut(auth);
+  return signOutUserUID;
 }
 
 // Mostly for test purposes

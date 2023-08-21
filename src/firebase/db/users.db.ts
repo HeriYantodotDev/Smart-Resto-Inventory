@@ -1,10 +1,12 @@
 import {
   doc,
   getDoc,
+  getDocs,
   setDoc,
   collection,
   DocumentReference,
   DocumentData,
+  query,
 } from 'firebase/firestore';
 
 import { User } from 'firebase/auth';
@@ -18,6 +20,25 @@ export function createUserDocRefFromAuth(user: User) {
   const userCollectionRef = collection(db, FbCollectionEnum.users);
   const userDocRef = doc(userCollectionRef, userUID);
   return userDocRef;
+}
+
+export function createUserDocRefFromUserUID(userUID: string) {
+  const userCollectionRef = collection(db, FbCollectionEnum.users);
+  const userDocRef = doc(userCollectionRef, userUID);
+  return userDocRef;
+}
+
+export async function getUser(userUID: string) {
+  const userDocRef = createUserDocRefFromUserUID(userUID);
+  const docSnap = getDoc(userDocRef);
+  return docSnap;
+}
+
+export async function getAllUsers() {
+  const collectionRef = collection(db, FbCollectionEnum.users);
+  const q = query(collectionRef);
+  const querySnapShot = await getDocs(q);
+  return querySnapShot;
 }
 
 export async function userSnapshotExists(
@@ -62,4 +83,18 @@ export async function createUserDocument(
     const userInput = generateUserInput(user, userDataOptional);
     await setDoc(userDocRef, userInput);
   }
+}
+
+export async function updateUserDocument(
+  userUID: string,
+  userInput: UserDataOptionalType
+) {
+  const userDocRef = createUserDocRefFromUserUID(userUID);
+
+  const userInputWithUpdatedAt: UserDataOptionalType = {
+    ...userInput,
+    updatedAt: new Date(),
+  };
+
+  await setDoc(userDocRef, userInputWithUpdatedAt, { merge: true });
 }

@@ -20,6 +20,7 @@ Working On:
 
 - 🚧 Test and add CRUD functionality for User Collections helper Functions:
   - 🚧 create & test the `deleteUserDocument` function
+  - ✅ Create & Test the `updateUserRestaurantIds` function.
   - ✅ Create & Test the `updateUserDocument` function.
   - ✅ Create & Test the `getUser` function.
   - ✅ Create & Test the `getAllUsers` function.

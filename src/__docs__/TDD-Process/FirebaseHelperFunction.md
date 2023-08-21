@@ -7,8 +7,9 @@
   - [Create User Collection & Document](#create-user-collection-document)
   - [Create User Collection Permission](#create-user-collection-permission)
   - [Testing User Collection Permission: Get, List, Update, Delete](#testing-user-collection-permission-get-list-update-delete)
-    - [Get & List ](#get-list)
+    - [Get & List](#get-list)
     - [Update](#update)
+    - [Update array field: RestaurantIDs.](#update-array-field-restaurantids)
     - [Delete](#delete)
 
 <!-- TOC end -->
@@ -1018,6 +1019,8 @@ export async function getUser(userUID: string) {
 
 ### Update
 
+Read this for more detail: https://firebase.google.com/docs/firestore/manage-data/add-data
+
 Great now let's add test for update and delete.
 
 Before we start creating the test and the implementation, let's change the rules to be like this:
@@ -1181,6 +1184,289 @@ export async function updateUserDocument(
   };
 
   await setDoc(userDocRef, userInputWithUpdatedAt, { merge: true });
+}
+```
+
+However it's better if we're using `updateDoc` function that is already provided by firestore:
+
+```ts
+export async function updateUserDocument(
+  userUID: string,
+  userInput: UserDataOptionalType
+) {
+  const userDocRef = createUserDocRefFromUserUID(userUID);
+
+  const userInputWithUpdatedAt = {
+    ...userInput,
+    updatedAt: new Date(),
+  };
+
+  await updateDoc(userDocRef, userInputWithUpdatedAt);
+}
+```
+
+We can also using `serverTimestamp()` from firebase to track when the server receives the update.
+
+So let's change our `updateUserDocument` to be like this:
+
+```
+export async function updateUserDocument(
+  userUID: string,
+  userInput: UserDataOptionalType
+) {
+  const userDocRef = createUserDocRefFromUserUID(userUID);
+
+  const userInputWithUpdatedAt = {
+    ...userInput,
+    updatedAt: serverTimestamp(),
+  };
+
+  await updateDoc(userDocRef, userInputWithUpdatedAt);
+}
+```
+
+And also our previous implementation in the `generateUserInput` to be like this:
+
+```ts
+function generateUserInput(
+  user: User,
+  userDataOptional: UserDataOptionalType
+): UserDataType {
+  const displayName = user.displayName || '';
+  const email = user.email || '';
+  const restaurantsIDs: number[] = [];
+  const createdAt = serverTimestamp();
+  const updatedAt = serverTimestamp();
+  const type = FbUserTypeEnum.user;
+
+  const userInput: UserDataType = {
+    displayName,
+    email,
+    createdAt,
+    updatedAt,
+    restaurantsIDs,
+    type,
+    ...userDataOptional,
+  };
+
+  return userInput;
+}
+```
+
+Of course we have to change the types also:
+
+```ts
+import { FieldValue } from 'firebase/firestore';
+
+export interface UserDataType {
+  displayName: string;
+  email: string;
+  restaurantsIDs: number[];
+  type: string;
+  createdAt: Date | FieldValue;
+  updatedAt: Date | FieldValue;
+}
+
+export interface UserDataOptionalType {
+  displayName?: string;
+  email?: string;
+  restaurantsIDs?: number[];
+  type?: string;
+  createdAt?: Date | FieldValue;
+  updatedAt?: Date | FieldValue;
+}
+```
+
+In this way, When updating multiple timestamp fields inside of a transaction, each field receives the same server timestamp value.
+
+<!-- TOC --><a name="update-array-field-restaurantids"></a>
+
+### Update array field: RestaurantIDs.
+
+Here's a tricky one, while others only have one entries, the array filed for `restaurantIDs` contains several input. After thinking for a while, I think I have to separate the user update with the restaurantIDs update. So the user update is updating all field except `restaurantIds`
+
+The first thing is to create an error if the user tries to send the update document with the `restaurantIDs` property. Let's create a test for it:
+
+```ts
+test(`returns error "${FbEnum.errorUserUpdateWithRestaurantIDs}" and no change when try to update the restaurantIDs field when login with admin user authentication`, async () => {
+  const newUser = await createUserCollectionFromAuthTest();
+
+  const querySnapShotBefore = await getDocumentSnapShotTest(emailTest);
+  const savedUserDataBefore = querySnapShotBefore.docs[0].data();
+
+  const { restaurantsIDs: restaurantsIDsBefore } = savedUserDataBefore;
+
+  let errorCode = '';
+
+  const inputUserData: UserDataOptionalType = {
+    restaurantsIDs: ['restaurantID1', 'restaurantID2'],
+  };
+
+  try {
+    await updateUserDocument(newUser.uid, inputUserData);
+  } catch (err) {
+    if (err instanceof ErrorUserUpdateWithRestaurantIDs) {
+      errorCode = err.code;
+    }
+  }
+
+  const querySnapShot = await getDocumentSnapShotTest(emailTest);
+  const savedUserData = querySnapShot.docs[0].data();
+  const { restaurantsIDs } = savedUserData;
+
+  expect(errorCode).toBe(FbEnum.errorUserUpdateWithRestaurantIDs);
+  // checking the previous data that should not be changed
+  expect(Array.isArray(restaurantsIDs)).toBe(true);
+  expect(restaurantsIDs.length).toBe(restaurantsIDsBefore.length);
+  expect(JSON.stringify(restaurantsIDs.sort())).toBe(
+    JSON.stringify(restaurantsIDsBefore.sort())
+  );
+});
+```
+
+Here's the implementation:
+
+```ts
+export async function updateUserDocument(
+  userUID: string,
+  userInput: UserDataOptionalType
+) {
+  if ('restaurantsIDs' in userInput) {
+    throw new ErrorUserUpdateWithRestaurantIDs();
+  }
+
+  const userDocRef = createUserDocRefFromUserUID(userUID);
+
+  const userInputWithUpdatedAt = {
+    ...userInput,
+    updatedAt: serverTimestamp(),
+  };
+
+  await updateDoc(userDocRef, userInputWithUpdatedAt);
+}
+```
+
+And here's the error class:
+
+```ts
+import { FbEnum } from '../enums/firebaseEnum';
+
+export class ErrorUserUpdateWithRestaurantIDs extends Error {
+  public code = FbEnum.errorUserUpdateWithRestaurantIDs;
+
+  constructor(message = FbEnum.errorUserUpdateWithRestaurantIDs) {
+    super(message);
+  }
+}
+```
+
+Great now let's using `arrayUnion()` and `arrayRemove()` to modify the `restaurantsIDs` field. Let's create two helper functions named: `addUserRestaurantsIDs` and `removeUserRestaurantsIDs`.
+
+Here are the tests:
+
+> Notes: We don't have to test with different authentication since we already tested it before for `userDoc`. Only focus on the array `restaurantsIDs`
+
+```ts
+describe('[addUserRestaurantsIDs] and [removeUserRestaurantsIDs] function', () => {
+  test(`adds elements in restaurantsIDs array when try to update the restaurantIDs field when login with admin user authentication`, async () => {
+    const newUser = await createUserCollectionFromAuthTest();
+
+    let errorCode = '';
+
+    const restaurantsIDs = ['restaurantID1', 'restaurantID2'];
+
+    const inputUserData: UserDataRestaurantsIdsOnly = {
+      restaurantsIDs,
+    };
+
+    try {
+      await addUserRestaurantsIDs(newUser.uid, inputUserData);
+    } catch (err) {
+      if (err instanceof ErrorUserUpdateWithRestaurantIDs) {
+        errorCode = err.code;
+      }
+    }
+
+    const querySnapShot = await getDocumentSnapShotTest(emailTest);
+    const savedUserData = querySnapShot.docs[0].data();
+    const { restaurantsIDs: restaurantsIDsResponse } = savedUserData;
+
+    expect(errorCode).toBeFalsy();
+    expect(Array.isArray(restaurantsIDs)).toBe(true);
+    expect(restaurantsIDsResponse.length).toBe(2);
+    expect(JSON.stringify(restaurantsIDsResponse.sort())).toBe(
+      JSON.stringify(restaurantsIDs.sort())
+    );
+  });
+
+  test(`removes elements in restaurantsIDs array when try to update the restaurantIDs field when login with admin user authentication`, async () => {
+    const newUser = await createUserCollectionFromAuthTest({
+      restaurantsIDs: ['restaurantID1', 'restaurantID2', 'restaurantsID3'],
+    });
+
+    let errorCode = '';
+
+    const restaurantsIDs = ['restaurantID1', 'restaurantID2'];
+
+    const inputUserData: UserDataRestaurantsIdsOnly = {
+      restaurantsIDs,
+    };
+
+    try {
+      await removeUserRestaurantsIDs(newUser.uid, inputUserData);
+    } catch (err) {
+      if (err instanceof ErrorUserUpdateWithRestaurantIDs) {
+        errorCode = err.code;
+      }
+    }
+
+    const querySnapShot = await getDocumentSnapShotTest(emailTest);
+    const savedUserData = querySnapShot.docs[0].data();
+    const { restaurantsIDs: restaurantsIDsResponse } = savedUserData;
+
+    expect(errorCode).toBeFalsy();
+    expect(Array.isArray(restaurantsIDs)).toBe(true);
+    expect(restaurantsIDsResponse.length).toBe(1);
+    expect(JSON.stringify(restaurantsIDsResponse.sort())).toBe(
+      JSON.stringify(['restaurantsID3'])
+    );
+  });
+});
+```
+
+And here's the implementation for it:
+
+```ts
+export async function addUserRestaurantsIDs(
+  userUID: string,
+  userInput: UserDataRestaurantsIdsOnly
+) {
+  const userDocRef = createUserDocRefFromUserUID(userUID);
+
+  const { restaurantsIDs } = userInput;
+
+  const userInputWithUpdatedAt = {
+    restaurantsIDs: arrayUnion(...restaurantsIDs),
+    updatedAt: serverTimestamp(),
+  };
+
+  await updateDoc(userDocRef, userInputWithUpdatedAt);
+}
+
+export async function removeUserRestaurantsIDs(
+  userUID: string,
+  userInput: UserDataRestaurantsIdsOnly
+) {
+  const userDocRef = createUserDocRefFromUserUID(userUID);
+
+  const { restaurantsIDs } = userInput;
+
+  const userInputWithUpdatedAt = {
+    restaurantsIDs: arrayRemove(...restaurantsIDs),
+    updatedAt: serverTimestamp(),
+  };
+
+  await updateDoc(userDocRef, userInputWithUpdatedAt);
 }
 ```
 

@@ -2,18 +2,31 @@ import {
   doc,
   getDoc,
   getDocs,
+  updateDoc,
   setDoc,
   collection,
   DocumentReference,
   DocumentData,
   query,
+  serverTimestamp,
+  arrayUnion,
+  arrayRemove,
 } from 'firebase/firestore';
 
 import { User } from 'firebase/auth';
 import { db } from '../firebase.config';
-import { UserDataType, UserDataOptionalType } from './database.types';
+import {
+  UserDataType,
+  UserDataOptionalType,
+  UserDataRestaurantsIdsOnly,
+} from './database.types';
 
-import { FbCollectionEnum, FbUserTypeEnum } from '../firebaseEnum';
+import {
+  FbCollectionEnum,
+  FbUserTypeEnum,
+} from '../../utils/enums/firebaseEnum';
+
+import { ErrorUserUpdateWithRestaurantIDs } from '../../utils/Errors/ErrorClass';
 
 export function createUserDocRefFromAuth(user: User) {
   const userUID = user.uid;
@@ -53,9 +66,9 @@ function generateUserInput(
 ): UserDataType {
   const displayName = user.displayName || '';
   const email = user.email || '';
-  const restaurantsIDs: number[] = [];
-  const createdAt = new Date();
-  const updatedAt = new Date();
+  const restaurantsIDs: string[] = [];
+  const createdAt = serverTimestamp();
+  const updatedAt = serverTimestamp();
   const type = FbUserTypeEnum.user;
 
   const userInput: UserDataType = {
@@ -89,12 +102,48 @@ export async function updateUserDocument(
   userUID: string,
   userInput: UserDataOptionalType
 ) {
+  if ('restaurantsIDs' in userInput) {
+    throw new ErrorUserUpdateWithRestaurantIDs();
+  }
+
   const userDocRef = createUserDocRefFromUserUID(userUID);
 
-  const userInputWithUpdatedAt: UserDataOptionalType = {
+  const userInputWithUpdatedAt = {
     ...userInput,
-    updatedAt: new Date(),
+    updatedAt: serverTimestamp(),
   };
 
-  await setDoc(userDocRef, userInputWithUpdatedAt, { merge: true });
+  await updateDoc(userDocRef, userInputWithUpdatedAt);
+}
+
+export async function addUserRestaurantsIDs(
+  userUID: string,
+  userInput: UserDataRestaurantsIdsOnly
+) {
+  const userDocRef = createUserDocRefFromUserUID(userUID);
+
+  const { restaurantsIDs } = userInput;
+
+  const userInputWithUpdatedAt = {
+    restaurantsIDs: arrayUnion(...restaurantsIDs),
+    updatedAt: serverTimestamp(),
+  };
+
+  await updateDoc(userDocRef, userInputWithUpdatedAt);
+}
+
+export async function removeUserRestaurantsIDs(
+  userUID: string,
+  userInput: UserDataRestaurantsIdsOnly
+) {
+  const userDocRef = createUserDocRefFromUserUID(userUID);
+
+  const { restaurantsIDs } = userInput;
+
+  const userInputWithUpdatedAt = {
+    restaurantsIDs: arrayRemove(...restaurantsIDs),
+    updatedAt: serverTimestamp(),
+  };
+
+  await updateDoc(userDocRef, userInputWithUpdatedAt);
 }

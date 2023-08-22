@@ -22,11 +22,14 @@ import {
 import {
   createUserDocRefFromAuth,
   createUserDocument,
-  getAllUsers,
-  getUser,
+  getAllUsersSnapShot,
+  getUserSnapShot,
   updateUserDocument,
   addUserRestaurantsIDs,
   removeUserRestaurantsIDs,
+  getUserDocument,
+  getAllUsersDocument,
+  deleteUserDocument,
 } from '../service/firebase/db/users.db';
 
 import { auth, db } from '../service/firebase/firebase.config';
@@ -312,7 +315,7 @@ describe('Firestore: User Collection Helper Function', () => {
       await signOutUser();
       let errorCode = '';
       try {
-        await getAllUsers();
+        await getAllUsersSnapShot();
       } catch (err) {
         if (err instanceof FirebaseError) {
           errorCode = err.code;
@@ -327,7 +330,7 @@ describe('Firestore: User Collection Helper Function', () => {
       await signInWithAuthUserTest(emailTest, passTest);
       let errorCode = '';
       try {
-        await getAllUsers();
+        await getAllUsersSnapShot();
       } catch (err) {
         if (err instanceof FirebaseError) {
           errorCode = err.code;
@@ -337,13 +340,13 @@ describe('Firestore: User Collection Helper Function', () => {
       expect(errorCode).toBe(FbEnum.errorPermissionDenied);
     });
 
-    test('returns all Users when try to get all users when login with admin user authentication', async () => {
+    test('returns all Users snapshot when try to get all users when login with admin user authentication', async () => {
       await createUserCollectionFromAuthTest();
       let querySnapShot: QuerySnapshot<DocumentData, DocumentData> | null =
         null;
       let errorCode = '';
       try {
-        querySnapShot = await getAllUsers();
+        querySnapShot = await getAllUsersSnapShot();
       } catch (err) {
         if (err instanceof FirebaseError) {
           errorCode = err.code;
@@ -372,7 +375,7 @@ describe('Firestore: User Collection Helper Function', () => {
       await signOutUser();
       let errorCode = '';
       try {
-        await getUser(newUser.uid);
+        await getUserSnapShot(newUser.uid);
       } catch (err) {
         if (err instanceof FirebaseError) {
           errorCode = err.code;
@@ -390,7 +393,7 @@ describe('Firestore: User Collection Helper Function', () => {
         throw new Error('Something wrong with the sign out user function');
       }
       try {
-        await getUser(superUser);
+        await getUserSnapShot(superUser);
       } catch (err) {
         if (err instanceof FirebaseError) {
           errorCode = err.code;
@@ -399,7 +402,7 @@ describe('Firestore: User Collection Helper Function', () => {
       expect(errorCode).toBe(FbEnum.errorPermissionDenied);
     });
 
-    test('returns user document when try to get other its own user document data when login with normal user authentication', async () => {
+    test('returns user document snapshot when try to get other its own user document data when login with normal user authentication', async () => {
       const nowInMs = Date.now();
       const newUser = await createUserCollectionFromAuthTest();
       await signOutUser();
@@ -408,7 +411,7 @@ describe('Firestore: User Collection Helper Function', () => {
       let docSnap: DocumentSnapshot<DocumentData, DocumentData> | null = null;
 
       try {
-        docSnap = await getUser(newUser.uid);
+        docSnap = await getUserSnapShot(newUser.uid);
       } catch (err) {
         if (err instanceof FirebaseError) {
           errorCode = err.code;
@@ -426,7 +429,7 @@ describe('Firestore: User Collection Helper Function', () => {
       expect(updatedAt).toBeGreaterThanOrEqual(nowInMs);
     });
 
-    test('returns user document when try to get other other user document data when login with admin user authentication', async () => {
+    test('returns user document snapshot when try to get other other user document data when login with admin user authentication', async () => {
       const nowInMs = Date.now();
       const newUser = await createUserCollectionFromAuthTest();
       await signOutUser();
@@ -435,7 +438,7 @@ describe('Firestore: User Collection Helper Function', () => {
       let docSnap: DocumentSnapshot<DocumentData, DocumentData> | null = null;
 
       try {
-        docSnap = await getUser(newUser.uid);
+        docSnap = await getUserSnapShot(newUser.uid);
       } catch (err) {
         if (err instanceof FirebaseError) {
           errorCode = err.code;
@@ -451,6 +454,61 @@ describe('Firestore: User Collection Helper Function', () => {
       expect(type).toBe('user');
       expect(createdAt).toBeGreaterThanOrEqual(nowInMs);
       expect(updatedAt).toBeGreaterThanOrEqual(nowInMs);
+    });
+  });
+
+  describe('[getUserDocument] function', () => {
+    // Previously we already test for the permission, therefore we only need to test one success case.
+    test('returns user document when try to get other its own user document data when login with normal user authentication', async () => {
+      const nowInMs = Date.now();
+      const newUser = await createUserCollectionFromAuthTest();
+      await signOutUser();
+      await signInAuthUserWithEmailAndPassword(emailTest, passTest);
+      let errorCode = '';
+      let docSnap: DocumentData | undefined | null = null;
+
+      try {
+        docSnap = await getUserDocument(newUser.uid);
+      } catch (err) {
+        if (err instanceof FirebaseError) {
+          errorCode = err.code;
+        }
+      }
+
+      if (!docSnap) {
+        throw new Error('Something wrong with the getUserDocument function');
+      }
+      const { email, createdAt, updatedAt, type } = docSnap;
+      expect(errorCode).toBeFalsy();
+      expect(email).toBe(emailTest);
+      expect(type).toBe('user');
+      expect(createdAt.toDate().getTime()).toBeGreaterThanOrEqual(nowInMs);
+      expect(updatedAt.toDate().getTime()).toBeGreaterThanOrEqual(nowInMs);
+    });
+  });
+
+  describe('[getAllUsersDocument] function', () => {
+    test('returns all Users documents when try to get all users when login with admin user authentication', async () => {
+      await createUserCollectionFromAuthTest();
+      let allUserDocuments: DocumentData[] = [];
+      let errorCode = '';
+      try {
+        allUserDocuments = await getAllUsersDocument();
+      } catch (err) {
+        if (err instanceof FirebaseError) {
+          errorCode = err.code;
+        }
+      }
+
+      if (!allUserDocuments) {
+        throw new Error('Error getAllUsersDocument function');
+      }
+
+      const emailArrayResponse = allUserDocuments.map((data) => data.email);
+
+      expect(allUserDocuments.length).toBe(2);
+      expect(errorCode).toBeFalsy();
+      expect(emailArrayResponse.sort()).toEqual(testEmailArray.sort());
     });
   });
 
@@ -672,6 +730,83 @@ describe('Firestore: User Collection Helper Function', () => {
       expect(JSON.stringify(restaurantsIDsResponse.sort())).toBe(
         JSON.stringify(['restaurantsID3'])
       );
+    });
+  });
+
+  describe('[deleteUserDocument]', () => {
+    test(`returns error "${FbEnum.errorPermissionDenied}" when try to delete user document without any authentication`, async () => {
+      const newUser = await createUserCollectionFromAuthTest();
+      await signOutUser();
+      let errorCode = '';
+
+      try {
+        await deleteUserDocument(newUser.uid);
+      } catch (err) {
+        if (err instanceof FirebaseError) {
+          errorCode = err.code;
+        }
+      }
+
+      expect(errorCode).toBe(FbEnum.errorPermissionDenied);
+    });
+
+    test(`returns error "${FbEnum.errorPermissionDenied}" when try to delete its own user document`, async () => {
+      const newUser = await createUserCollectionFromAuthTest();
+      await signOutUser();
+      await signInAuthUserWithEmailAndPassword(emailTest, passTest);
+      let errorCode = '';
+
+      try {
+        await deleteUserDocument(newUser.uid);
+      } catch (err) {
+        if (err instanceof FirebaseError) {
+          errorCode = err.code;
+        }
+      }
+
+      expect(errorCode).toBe(FbEnum.errorPermissionDenied);
+    });
+
+    test(`returns error "${FbEnum.errorPermissionDenied}" when try to delete other user document`, async () => {
+      await createUserCollectionFromAuthTest();
+      const superUser = await signOutUser();
+      await signInAuthUserWithEmailAndPassword(emailTest, passTest);
+      let errorCode = '';
+
+      if (!superUser) {
+        throw new Error('Error Function signOutUser()');
+      }
+
+      try {
+        await deleteUserDocument(superUser);
+      } catch (err) {
+        if (err instanceof FirebaseError) {
+          errorCode = err.code;
+        }
+      }
+
+      expect(errorCode).toBe(FbEnum.errorPermissionDenied);
+    });
+
+    test('deletes user document when login with admin user authentication', async () => {
+      const newUser = await createUserCollectionFromAuthTest();
+
+      let errorCode = '';
+
+      try {
+        await deleteUserDocument(newUser.uid);
+      } catch (err) {
+        if (err instanceof FirebaseError) {
+          errorCode = err.code;
+        }
+      }
+
+      const userInDB = await getUserDocument(newUser.uid);
+      const userSnapShot = await getUserSnapShot(newUser.uid);
+
+      expect(errorCode).toBeFalsy();
+      expect(userInDB).toBeFalsy();
+      expect(userSnapShot.exists()).toBe(false);
     });
   });
 });

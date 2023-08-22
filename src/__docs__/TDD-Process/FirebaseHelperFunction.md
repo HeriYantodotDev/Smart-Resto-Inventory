@@ -6,11 +6,11 @@
   - [User Document Reference](#user-document-reference)
   - [Create User Collection & Document](#create-user-collection-document)
   - [Create User Collection Permission](#create-user-collection-permission)
-  - [Testing User Collection Permission: Get, List, Update, Delete](#testing-user-collection-permission-get-list-update-delete)
-    - [Get & List](#get-list)
-    - [Update](#update)
-    - [Update array field: RestaurantIDs.](#update-array-field-restaurantids)
-    - [Delete](#delete)
+  - [Testing User Collection Helper Function: Get & List](#testing-user-collection-helper-function-get-list)
+  - [Testing User Collection Helper Function: Update](#testing-user-collection-helper-function-update)
+  - [Update array field: RestaurantIDs.](#update-array-field-restaurantids)
+  - [Testing User Collection helper function: `getUserDocument` & `getAllUsersDocument`](#testing-user-collection-helper-function-getuserdocument-getallusersdocument)
+  - [Testing User Collection Helper Function: Delete](#testing-user-collection-helper-function-delete)
 
 <!-- TOC end -->
 
@@ -812,13 +812,9 @@ firebase deploy --only firestore:rules
 
 Read this for more detail information : https://firebase.google.com/docs/rules/manage-deploy
 
-<!-- TOC --><a name="testing-user-collection-permission-get-list-update-delete"></a>
+<!-- TOC --><a name="testing-user-collection-helper-function-get-list"></a>
 
-## Testing User Collection Permission: Get, List, Update, Delete
-
-<!-- TOC --><a name="get-list"></a>
-
-### Get & List
+## Testing User Collection Helper Function: Get & List
 
 Now let's test for get and list permission.
 
@@ -1015,9 +1011,9 @@ export async function getUser(userUID: string) {
 }
 ```
 
-<!-- TOC --><a name="update"></a>
+<!-- TOC --><a name="testing-user-collection-helper-function-update"></a>
 
-### Update
+## Testing User Collection Helper Function: Update
 
 Read this for more detail: https://firebase.google.com/docs/firestore/manage-data/add-data
 
@@ -1281,7 +1277,7 @@ In this way, When updating multiple timestamp fields inside of a transaction, ea
 
 <!-- TOC --><a name="update-array-field-restaurantids"></a>
 
-### Update array field: RestaurantIDs.
+## Update array field: RestaurantIDs.
 
 Here's a tricky one, while others only have one entries, the array filed for `restaurantIDs` contains several input. After thinking for a while, I think I have to separate the user update with the restaurantIDs update. So the user update is updating all field except `restaurantIds`
 
@@ -1470,8 +1466,207 @@ export async function removeUserRestaurantsIDs(
 }
 ```
 
-Okay now this is the last one about delete User Document.
+<!-- TOC --><a name="testing-user-collection-helper-function-getuserdocument-getallusersdocument"></a>
 
-<!-- TOC --><a name="delete"></a>
+## Testing User Collection helper function: `getUserDocument` & `getAllUsersDocument`
 
-### Delete
+Our previous function `getUser` and also `getAllUsers`. They return the snapshot documents, therefore they are not correctly named. Let's change their name to:
+
+- `getUser` => `getUserSnapShot`
+- `getAllUsers` => `getAllUsersSnapShot`
+
+So let's refactor their name first. After changing the previous function names, let's test success case for `getUserDocument` and also `getAllUsersDocument`. We don't have to test the error case since it's basically quite the same, we only modify the return function.
+
+Here are the test and implementation for `getUserDocument`:
+
+- Test:
+
+  ```ts
+  describe('[getUserDocument] function', () => {
+    // Previously we already test for the permission, therefore we only need to test one success case.
+    test.only('returns user document snapshot when try to get other its own user document data when login with normal user authentication', async () => {
+      const nowInMs = Date.now();
+      const newUser = await createUserCollectionFromAuthTest();
+      await signOutUser();
+      await signInAuthUserWithEmailAndPassword(emailTest, passTest);
+      let errorCode = '';
+      let docSnap: DocumentData | undefined | null = null;
+
+      try {
+        docSnap = await getUserDocument(newUser.uid);
+      } catch (err) {
+        if (err instanceof FirebaseError) {
+          errorCode = err.code;
+        }
+      }
+
+      if (!docSnap) {
+        throw new Error('Something wrong with the getUserDocument function');
+      }
+      const { email, createdAt, updatedAt, type } = docSnap;
+      expect(errorCode).toBeFalsy();
+      expect(email).toBe(emailTest);
+      expect(type).toBe('user');
+      expect(createdAt.toDate().getTime()).toBeGreaterThanOrEqual(nowInMs);
+      expect(updatedAt.toDate().getTime()).toBeGreaterThanOrEqual(nowInMs);
+    });
+  });
+  ```
+
+- Implementation:
+  ```ts
+  export async function getUserDocument(userUID: string) {
+    const userDocSnapShot = await getUserSnapShot(userUID);
+    const userDocument = userDocSnapShot.data();
+    return userDocument;
+  }
+  ```
+
+Here are the test and implementation for `getAllUsersDocument`:
+
+- Test:
+
+  ```ts
+  describe('[getAllUsersDocument] function', () => {
+    test('returns all Users documents when try to get all users when login with admin user authentication', async () => {
+      await createUserCollectionFromAuthTest();
+      let allUserDocuments: DocumentData[] = [];
+      let errorCode = '';
+      try {
+        allUserDocuments = await getAllUsersDocument();
+      } catch (err) {
+        if (err instanceof FirebaseError) {
+          errorCode = err.code;
+        }
+      }
+
+      if (!allUserDocuments) {
+        throw new Error('Error getAllUsersDocument function');
+      }
+
+      const emailArrayResponse = allUserDocuments.map((data) => data.email);
+
+      expect(allUserDocuments.length).toBe(2);
+      expect(errorCode).toBeFalsy();
+      expect(emailArrayResponse.sort()).toEqual(testEmailArray.sort());
+    });
+  });
+  ```
+
+- Implementation:
+
+  ```ts
+  export async function getAllUsersDocument() {
+    const querySnapShot = await getAllUsersSnapShot();
+    const allUserDocuments = querySnapShot.docs.map((data) => {
+      return data.data();
+    });
+    return allUserDocuments;
+  }
+  ```
+
+With this refactoring, we will have proper functions to be user. If we only need the document then we can just get the document without the ID, if we need everything than we can just call the functions that return snapShot.
+
+<!-- TOC --><a name="testing-user-collection-helper-function-delete"></a>
+
+## Testing User Collection Helper Function: Delete
+
+Okay now this is the last one about delete User Document. We have specified in our rules that only the admin user can delete it. So let's have several test cases:
+
+- returns error when try to delete user document without any authentication
+- returns error when try to delete its own user document
+- return error when try to delete other user document
+- deletes user document when login with admin user authentication
+
+Now let's create the test and also a function named `deleteUserDocument`:
+
+- Test:
+
+  ```ts
+  describe('[deleteUserDocument]', () => {
+    test(`returns error "${FbEnum.errorPermissionDenied}" when try to delete user document without any authentication`, async () => {
+      const newUser = await createUserCollectionFromAuthTest();
+      await signOutUser();
+      let errorCode = '';
+
+      try {
+        await deleteUserDocument(newUser.uid);
+      } catch (err) {
+        if (err instanceof FirebaseError) {
+          errorCode = err.code;
+        }
+      }
+
+      expect(errorCode).toBe(FbEnum.errorPermissionDenied);
+    });
+
+    test(`returns error "${FbEnum.errorPermissionDenied}" when try to delete its own user document`, async () => {
+      const newUser = await createUserCollectionFromAuthTest();
+      await signOutUser();
+      await signInAuthUserWithEmailAndPassword(emailTest, passTest);
+      let errorCode = '';
+
+      try {
+        await deleteUserDocument(newUser.uid);
+      } catch (err) {
+        if (err instanceof FirebaseError) {
+          errorCode = err.code;
+        }
+      }
+
+      expect(errorCode).toBe(FbEnum.errorPermissionDenied);
+    });
+
+    test(`returns error "${FbEnum.errorPermissionDenied}" when try to delete other user document`, async () => {
+      await createUserCollectionFromAuthTest();
+      const superUser = await signOutUser();
+      await signInAuthUserWithEmailAndPassword(emailTest, passTest);
+      let errorCode = '';
+
+      if (!superUser) {
+        throw new Error('Error Function signOutUser()');
+      }
+
+      try {
+        await deleteUserDocument(superUser);
+      } catch (err) {
+        if (err instanceof FirebaseError) {
+          errorCode = err.code;
+        }
+      }
+
+      expect(errorCode).toBe(FbEnum.errorPermissionDenied);
+    });
+
+    test('deletes user document when login with admin user authentication', async () => {
+      const newUser = await createUserCollectionFromAuthTest();
+
+      let errorCode = '';
+
+      try {
+        await deleteUserDocument(newUser.uid);
+      } catch (err) {
+        if (err instanceof FirebaseError) {
+          errorCode = err.code;
+        }
+      }
+
+      const userInDB = await getUserDocument(newUser.uid);
+      const userSnapShot = await getUserSnapShot(newUser.uid);
+
+      expect(errorCode).toBeFalsy();
+      expect(userInDB).toBeFalsy();
+      expect(userSnapShot.exists()).toBe(false);
+    });
+  });
+  ```
+
+- Implementation:
+  ```ts
+  export async function deleteUserDocument(userUID: string) {
+    const userDocRef = createUserDocRefFromUserUID(userUID);
+    await deleteDoc(userDocRef);
+  }
+  ```
+
+Ok it's done for the User Helper Function.

@@ -11,6 +11,7 @@ import {
   serverTimestamp,
   arrayUnion,
   arrayRemove,
+  deleteDoc,
 } from 'firebase/firestore';
 
 import { User } from 'firebase/auth';
@@ -41,17 +42,31 @@ export function createUserDocRefFromUserUID(userUID: string) {
   return userDocRef;
 }
 
-export async function getUser(userUID: string) {
+export async function getUserSnapShot(userUID: string) {
   const userDocRef = createUserDocRefFromUserUID(userUID);
-  const docSnap = getDoc(userDocRef);
-  return docSnap;
+  const docSnapShot = getDoc(userDocRef);
+  return docSnapShot;
 }
 
-export async function getAllUsers() {
+export async function getUserDocument(userUID: string) {
+  const userDocSnapShot = await getUserSnapShot(userUID);
+  const userDocument = userDocSnapShot.data();
+  return userDocument;
+}
+
+export async function getAllUsersSnapShot() {
   const collectionRef = collection(db, FbCollectionEnum.users);
   const q = query(collectionRef);
   const querySnapShot = await getDocs(q);
   return querySnapShot;
+}
+
+export async function getAllUsersDocument() {
+  const querySnapShot = await getAllUsersSnapShot();
+  const allUserDocuments = querySnapShot.docs.map((data) => {
+    return data.data();
+  });
+  return allUserDocuments;
 }
 
 export async function userSnapshotExists(
@@ -146,4 +161,9 @@ export async function removeUserRestaurantsIDs(
   };
 
   await updateDoc(userDocRef, userInputWithUpdatedAt);
+}
+
+export async function deleteUserDocument(userUID: string) {
+  const userDocRef = createUserDocRefFromUserUID(userUID);
+  await deleteDoc(userDocRef);
 }

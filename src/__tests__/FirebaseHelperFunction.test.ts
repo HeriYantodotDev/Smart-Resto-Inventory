@@ -42,11 +42,7 @@ import {
 
 import { ErrorUserUpdateWithRestaurantIDs } from '../service/utils/Errors/ErrorClass';
 
-const emailTest = 'test@gmail.com';
-const passTest = 'Drone@123';
-
-const superEmail = 'supertest@mail.com';
-const superPassword = 'Always@123@Happy';
+import { emailTest, passTest, superEmail, superPassword } from './helper';
 
 const testEmailArray = ['test@gmail.com', 'supertest@mail.com'];
 
@@ -73,6 +69,17 @@ async function deleteUserCollectionExceptSuper() {
 }
 
 beforeEach(async () => {
+  try {
+    await deleteAuthUser(emailTest, passTest);
+    await signInAuthUserWithEmailAndPassword(superEmail, superPassword);
+    await deleteUserCollectionExceptSuper();
+    await signOutUser();
+  } catch (err) {
+    //
+  }
+});
+
+afterAll(async () => {
   try {
     await deleteAuthUser(emailTest, passTest);
     await signInAuthUserWithEmailAndPassword(superEmail, superPassword);

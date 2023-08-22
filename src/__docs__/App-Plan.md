@@ -18,12 +18,7 @@ I'm creating a plan for this app from the architecture, routes/pages, database, 
 
 Working On:
 
-- 🚧 Test and add CRUD functionality for User Collections helper Functions:
-  - 🚧 create & test the `deleteUserDocument` function
-  - ✅ Create & Test the `updateUserRestaurantIds` function.
-  - ✅ Create & Test the `updateUserDocument` function.
-  - ✅ Create & Test the `getUser` function.
-  - ✅ Create & Test the `getAllUsers` function.
+- 📝 React Admin Page component - Create User, Update User, Set RestaurantIDs to a user
 
 To Do List:
 
@@ -34,6 +29,12 @@ To Do List:
 
 Done List:
 
+- ✅ Test and add CRUD functionality for User Collections helper Functions:
+  - ✅ create & test the `deleteUserDocument` function
+  - ✅ Create & Test the `updateUserRestaurantIds` function.
+  - ✅ Create & Test the `updateUserDocument` function.
+  - ✅ Create & Test the `getUser` function.
+  - ✅ Create & Test the `getAllUsers` function.
 - ✅ Firebase Emulator set up with Jest.
 - ✅ Firebase Auth Helper Functions. All functions are tested.
 - ✅ User Collection Permission: set up admin user.

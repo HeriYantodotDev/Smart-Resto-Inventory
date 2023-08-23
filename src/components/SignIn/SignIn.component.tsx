@@ -1,28 +1,60 @@
 import { useCallback, MouseEvent, useState } from 'react';
+
+import { FirebaseError } from 'firebase/app';
+import { ValidationError } from 'yup';
+
 import FormInput from '../FormInput/FormInput.component';
 import Button from '../Button/Button.component';
 import TextLogo from '../TextLogo/TextLogo.component';
 import useInputState from '../../service/utils/state/useInputState';
 import Spinner from '../Spinner/Spinner.component';
+import ErrorFormText from '../ErrorFormText/ErrorFormText.component';
+import { ErrorStateSignInType } from './SignIn.types';
 
 import { signInAuthUserWithEmailAndPassword } from '../../service/firebase/firebase.auth';
+import { signInFormValidation } from '../../service/utils/validators/signInSchema';
+import {
+  generateErrorListValidationError,
+  generateErrorListFirebaseError,
+} from '../../service/utils/Errors/generateErrorLists';
 
 export default function SignIn() {
+  const [errors, setErrors] = useState<ErrorStateSignInType>({});
   const emailInput = useInputState();
   const passwordInput = useInputState();
   const [apiProgress, setApiProgress] = useState(false);
+
+  function handleError(err: unknown) {
+    if (err instanceof ValidationError) {
+      const errorList = generateErrorListValidationError(err);
+      setErrors(errorList);
+      return;
+    }
+
+    if (err instanceof FirebaseError) {
+      const errorList = generateErrorListFirebaseError(err);
+      setErrors(errorList);
+      return;
+    }
+
+    setErrors({
+      auth: 'UnknownError',
+    });
+  }
 
   const handleSubmit = useCallback(
     async (event: MouseEvent<HTMLButtonElement>) => {
       try {
         event.preventDefault();
         setApiProgress(true);
+        await signInFormValidation(emailInput.value, passwordInput.value);
         await signInAuthUserWithEmailAndPassword(
           emailInput.value,
           passwordInput.value
         );
         setApiProgress(false);
       } catch (err) {
+        handleError(err);
         setApiProgress(false);
       }
     },
@@ -53,6 +85,7 @@ export default function SignIn() {
               id="email"
               value={emailInput.value}
               type="text"
+              error={errors.email}
             />
             <FormInput
               onChange={passwordInput.onchange}
@@ -61,7 +94,13 @@ export default function SignIn() {
               id="password"
               value={passwordInput.value}
               type="password"
+              error={errors.password}
             />
+            {errors.auth && (
+              <div>
+                <ErrorFormText>{errors.auth}</ErrorFormText>
+              </div>
+            )}
             <Button onClick={handleSubmit} disabled={apiProgress}>
               {apiProgress ? <Spinner /> : 'Sign In'}
             </Button>

@@ -11,7 +11,8 @@ import userEvent from '@testing-library/user-event';
 import SignIn from '../components/SignIn/SignIn.component';
 // Extend Jest "expect" functionality with Testing Library assertions.
 
-import { emailTest, passTest } from './helper';
+import { emailTest, passTest, superEmail } from './helper';
+import { FbEnum } from '../service/utils/enums/firebaseEnum';
 
 function setup(jsx: JSX.Element) {
   return {
@@ -37,12 +38,26 @@ describe('Sign In Component', () => {
     });
   });
   let button: HTMLElement | null;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  async function renderAndFill(userEventProps: any) {
+  const defaultSignInInput: Record<string, string> = {
+    email: emailTest,
+    password: passTest,
+  };
+
+  async function renderAndFill(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    userEventProps: any,
+    signInInput = defaultSignInInput
+  ) {
     const emailInput = screen.getByLabelText('Email');
     const passwordInput = screen.getByLabelText('Password');
-    await userEventProps.type(emailInput, emailTest);
-    await userEventProps.type(passwordInput, passTest);
+    if (signInInput.email) {
+      await userEventProps.type(emailInput, signInInput.email);
+    }
+
+    if (signInInput.password) {
+      await userEventProps.type(passwordInput, signInInput.password);
+    }
+
     button = screen.queryByRole('button', { name: 'Sign In' });
   }
 
@@ -98,6 +113,77 @@ describe('Sign In Component', () => {
       expect(text).toBeInTheDocument();
       expect(spinner).not.toBeInTheDocument();
       expect(button).toBeEnabled();
+    });
+
+    test.each`
+      field         | value      | message
+      ${'email'}    | ${''}      | ${FbEnum.errorEmptyEmail}
+      ${'email'}    | ${'test'}  | ${FbEnum.errorInvalidEmailInput}
+      ${'email'}    | ${'test@'} | ${FbEnum.errorInvalidEmailInput}
+      ${'password'} | ${''}      | ${FbEnum.errorEmptyPassword}
+    `(
+      'display error message $message for field $field when log in with invalid format',
+      async ({ field, value, message }) => {
+        const { user } = setup(<SignIn />);
+        const signInInput: Record<string, string> = {
+          email: emailTest,
+          password: passTest,
+        };
+
+        signInInput[field] = value;
+
+        await renderAndFill(user, signInInput);
+
+        if (!button) {
+          fail('Button is not found');
+        }
+
+        await user.click(button);
+
+        const validationError = await screen.findByText(message);
+
+        expect(validationError).toBeInTheDocument();
+      }
+    );
+
+    test(`display error message "${FbEnum.errorAuth}" when login with unregistered user`, async () => {
+      const { user } = setup(<SignIn />);
+      const signInInput: Record<string, string> = {
+        email: emailTest,
+        password: passTest,
+      };
+
+      await renderAndFill(user, signInInput);
+
+      if (!button) {
+        fail('Button is not found');
+      }
+
+      await user.click(button);
+
+      const validationError = await screen.findByText(FbEnum.errorAuth);
+
+      expect(validationError).toBeInTheDocument();
+    });
+
+    test(`display error message "${FbEnum.errorAuth}" when login with registered user but wrong password`, async () => {
+      const { user } = setup(<SignIn />);
+      const signInInput: Record<string, string> = {
+        email: superEmail,
+        password: passTest,
+      };
+
+      await renderAndFill(user, signInInput);
+
+      if (!button) {
+        fail('Button is not found');
+      }
+
+      await user.click(button);
+
+      const validationError = await screen.findByText(FbEnum.errorAuth);
+
+      expect(validationError).toBeInTheDocument();
     });
   });
 

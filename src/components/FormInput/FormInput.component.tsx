@@ -28,8 +28,8 @@ export default function FormInput({
         id={id}
         type={type || 'text'}
         className={`
-        my-2 w-full
-          rounded-md border-2 border-gray-300 
+          my-2 w-full
+          rounded-md border-2  border-gray-300
           bg-transparent text-white
           ${error ? 'border-red-500' : 'border-gray-300'}
           px-2

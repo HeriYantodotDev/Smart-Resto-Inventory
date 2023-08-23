@@ -23,7 +23,7 @@ And then add this :
 
 This makes us easier to filter the file test
 
-## Layout
+## Layout & Interaction
 
 Let's write our first test:
 
@@ -228,3 +228,167 @@ Great now let's write out implementation:
   - TextLogo
 
   Since they are pretty straightforward, I don't have to jot it down in this documentation.
+
+Now let's move to the validation. There are several error cases we'd like to handle:
+
+- Validation Error
+  - Empty email
+  - Not a proper format of an email.
+  - Empty password
+- Authentication Failure: either email not found or password incorrect. We don't want to give a specific information to the front end so just authentication failure.
+
+We have to install the `yup` library first. https://www.npmjs.com/package/yup
+
+Here are the test for validation error, and then for authentication failure both for unregistered user or wrong password :
+
+```ts
+test.each`
+  field         | value      | message
+  ${'email'}    | ${''}      | ${FbEnum.errorEmptyEmail}
+  ${'email'}    | ${'test'}  | ${FbEnum.errorInvalidEmailInput}
+  ${'email'}    | ${'test@'} | ${FbEnum.errorInvalidEmailInput}
+  ${'password'} | ${''}      | ${FbEnum.errorEmptyPassword}
+`(
+  'display error message $message for field $field when log in with invalid format',
+  async ({ field, value, message }) => {
+    const { user } = setup(<SignIn />);
+    const signInInput: Record<string, string> = {
+      email: emailTest,
+      password: passTest,
+    };
+
+    signInInput[field] = value;
+
+    await renderAndFill(user, signInInput);
+
+    if (!button) {
+      fail('Button is not found');
+    }
+
+    await user.click(button);
+
+    const validationError = await screen.findByText(message);
+
+    expect(validationError).toBeInTheDocument();
+  }
+);
+
+test(`display error message "${FbEnum.errorAuth}" when login with unregistered user`, async () => {
+  const { user } = setup(<SignIn />);
+  const signInInput: Record<string, string> = {
+    email: emailTest,
+    password: passTest,
+  };
+
+  await renderAndFill(user, signInInput);
+
+  if (!button) {
+    fail('Button is not found');
+  }
+
+  await user.click(button);
+
+  const validationError = await screen.findByText(FbEnum.errorAuth);
+
+  expect(validationError).toBeInTheDocument();
+});
+
+test(`display error message "${FbEnum.errorAuth}" when login with registered user but wrong password`, async () => {
+  const { user } = setup(<SignIn />);
+  const signInInput: Record<string, string> = {
+    email: superEmail,
+    password: passTest,
+  };
+
+  await renderAndFill(user, signInInput);
+
+  if (!button) {
+    fail('Button is not found');
+  }
+
+  await user.click(button);
+
+  const validationError = await screen.findByText(FbEnum.errorAuth);
+
+  expect(validationError).toBeInTheDocument();
+});
+```
+
+In our implementation in the `SignIn` component I added several functions:
+
+```ts
+function handleError(err: unknown) {
+  if (err instanceof ValidationError) {
+    const errorList = generateErrorListValidationError(err);
+    setErrors(errorList);
+    return;
+  }
+
+  if (err instanceof FirebaseError) {
+    const errorList = generateErrorListFirebaseError(err);
+    setErrors(errorList);
+    return;
+  }
+
+  setErrors({
+    auth: 'UnknownError',
+  });
+}
+
+const handleSubmit = useCallback(
+  async (event: MouseEvent<HTMLButtonElement>) => {
+    try {
+      event.preventDefault();
+      setApiProgress(true);
+      await signInFormValidation(emailInput.value, passwordInput.value);
+      await signInAuthUserWithEmailAndPassword(
+        emailInput.value,
+        passwordInput.value
+      );
+      setApiProgress(false);
+    } catch (err) {
+      handleError(err);
+      setApiProgress(false);
+    }
+  },
+  [emailInput.value, passwordInput.value]
+);
+```
+
+I also created several helper functions to generate Error Lists:
+`generateErrorLists,ts`
+
+```ts
+import { FirebaseError } from 'firebase/app';
+import { ValidationError } from 'yup';
+
+import { FbEnum } from '../enums/firebaseEnum';
+
+type ErrorStateType = {
+  [key: string]: string | undefined;
+};
+
+export function generateErrorListValidationError(err: ValidationError) {
+  let errorList: ErrorStateType = {} as ErrorStateType;
+  err.inner.forEach((inner) => {
+    const path = inner.params?.path ?? '';
+    const errorMessageKey = path as keyof ErrorStateType;
+    errorList = {
+      ...errorList,
+      [errorMessageKey]: inner.errors[0],
+    };
+  });
+  return errorList;
+}
+
+export function generateErrorListFirebaseError(err: FirebaseError) {
+  let errorList: ErrorStateType = {};
+  if (
+    err.code === FbEnum.errorAuthUserNotFound ||
+    err.code === FbEnum.errorWrongPassword
+  ) {
+    errorList = { auth: FbEnum.errorAuth };
+  }
+  return errorList;
+}
+```

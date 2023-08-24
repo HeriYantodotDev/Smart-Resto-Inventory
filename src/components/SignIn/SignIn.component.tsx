@@ -9,6 +9,7 @@ import TextLogo from '../TextLogo/TextLogo.component';
 import useInputState from '../../service/utils/state/useInputState';
 import Spinner from '../Spinner/Spinner.component';
 import ErrorFormText from '../ErrorFormText/ErrorFormText.component';
+import Information from '../Information/Information.component';
 import { ErrorStateSignInType } from './SignIn.types';
 
 import { signInAuthUserWithEmailAndPassword } from '../../service/firebase/firebase.auth';
@@ -18,11 +19,14 @@ import {
   generateErrorListFirebaseError,
 } from '../../service/utils/Errors/generateErrorLists';
 
+const defaultValue = '';
+
 export default function SignIn() {
   const [errors, setErrors] = useState<ErrorStateSignInType>({});
-  const emailInput = useInputState();
-  const passwordInput = useInputState();
+  const emailInput = useInputState(errors, setErrors, defaultValue, 'auth');
+  const passwordInput = useInputState(errors, setErrors, defaultValue, 'auth');
   const [apiProgress, setApiProgress] = useState(false);
+  const [signInSuccess, setSignInSuccess] = useState(false);
 
   function handleError(err: unknown) {
     if (err instanceof ValidationError) {
@@ -53,6 +57,7 @@ export default function SignIn() {
           passwordInput.value
         );
         setApiProgress(false);
+        setSignInSuccess(true);
       } catch (err) {
         handleError(err);
         setApiProgress(false);
@@ -62,50 +67,56 @@ export default function SignIn() {
   );
 
   return (
-    <div
-      className="flex h-screen items-center justify-center"
-      data-testid="signUpPage"
-    >
+    <div className="flex h-screen items-center justify-center">
       <div>
-        <form
-          className="w-80 rounded-lg bg-slate-800 bg-opacity-40  pb-7 pt-7 text-center"
-          data-testid="formSignUp"
-        >
-          <div className="flex items-center justify-center pt-4">
-            <TextLogo>Kopi Satu</TextLogo>
-          </div>
-          <div className="flex h-20 items-center justify-center">
-            <h1 className="text-4xl text-white">Sign In</h1>
-          </div>
-          <div className="mx-6 my-6">
-            <FormInput
-              onChange={emailInput.onchange}
-              labelName="Email"
-              htmlFor="email"
-              id="email"
-              value={emailInput.value}
-              type="text"
-              error={errors.email}
-            />
-            <FormInput
-              onChange={passwordInput.onchange}
-              labelName="Password"
-              htmlFor="password"
-              id="password"
-              value={passwordInput.value}
-              type="password"
-              error={errors.password}
-            />
-            {errors.auth && (
-              <div>
-                <ErrorFormText>{errors.auth}</ErrorFormText>
-              </div>
-            )}
-            <Button onClick={handleSubmit} disabled={apiProgress}>
-              {apiProgress ? <Spinner /> : 'Sign In'}
-            </Button>
-          </div>
-        </form>
+        {!signInSuccess && (
+          <form
+            className="w-80 rounded-lg bg-slate-800 bg-opacity-40  pb-7 pt-7 text-center"
+            data-testid="formSignUp"
+          >
+            <div className="flex items-center justify-center pt-4">
+              <TextLogo>Kopi Satu</TextLogo>
+            </div>
+            <div className="flex h-20 items-center justify-center">
+              <h1 className="text-4xl text-white">Sign In</h1>
+            </div>
+            <div className="mx-6 my-6">
+              <FormInput
+                onChange={emailInput.onchange}
+                labelName="Email"
+                htmlFor="email"
+                id="email"
+                value={emailInput.value}
+                type="text"
+                error={errors.email}
+              />
+              <FormInput
+                onChange={passwordInput.onchange}
+                labelName="Password"
+                htmlFor="password"
+                id="password"
+                value={passwordInput.value}
+                type="password"
+                error={errors.password}
+              />
+              {errors.auth && (
+                <div>
+                  <ErrorFormText>{errors.auth}</ErrorFormText>
+                </div>
+              )}
+              <Button onClick={handleSubmit} disabled={apiProgress}>
+                {apiProgress ? <Spinner /> : 'Sign In'}
+              </Button>
+            </div>
+          </form>
+        )}
+
+        {signInSuccess && (
+          <Information>
+            You have successfully signed in. You will be redirected to the
+            dashboard page in 3 seconds.
+          </Information>
+        )}
       </div>
     </div>
   );

@@ -11,8 +11,10 @@ import userEvent from '@testing-library/user-event';
 import SignIn from '../components/SignIn/SignIn.component';
 // Extend Jest "expect" functionality with Testing Library assertions.
 
-import { emailTest, passTest, superEmail } from './helper';
+import { emailTest, passTest, superEmail, superPassword } from './helper';
 import { FbEnum } from '../service/utils/enums/firebaseEnum';
+
+import { signOutUser } from '../service/firebase/firebase.auth';
 
 function setup(jsx: JSX.Element) {
   return {
@@ -37,6 +39,8 @@ describe('Sign In Component', () => {
       expect(textLogo).toBeInTheDocument();
     });
   });
+
+  // TO DO: Move this block if we don't use it in the Internationalization or Reducer
   let button: HTMLElement | null;
   const defaultSignInInput: Record<string, string> = {
     email: emailTest,
@@ -62,6 +66,10 @@ describe('Sign In Component', () => {
   }
 
   describe('Interaction', () => {
+    beforeEach(async () => {
+      await signOutUser();
+    });
+
     test('displays spinner and hides "Sign In" text in the button after clicking the submit button', async () => {
       const { user } = setup(<SignIn />);
 
@@ -184,6 +192,115 @@ describe('Sign In Component', () => {
       const validationError = await screen.findByText(FbEnum.errorAuth);
 
       expect(validationError).toBeInTheDocument();
+    });
+
+    test.each`
+      field         | value      | message                          | label
+      ${'email'}    | ${''}      | ${FbEnum.errorEmptyEmail}        | ${'Email'}
+      ${'email'}    | ${'test'}  | ${FbEnum.errorInvalidEmailInput} | ${'Email'}
+      ${'email'}    | ${'test@'} | ${FbEnum.errorInvalidEmailInput} | ${'Email'}
+      ${'password'} | ${''}      | ${FbEnum.errorEmptyPassword}     | ${'Password'}
+    `(
+      'clears error message $message for field "$field" after "$field" is updated',
+      async ({ field, value, message, label }) => {
+        const { user } = setup(<SignIn />);
+        const signInInput: Record<string, string> = {
+          email: emailTest,
+          password: passTest,
+        };
+
+        signInInput[field] = value;
+
+        await renderAndFill(user, signInInput);
+
+        if (!button) {
+          fail('Button is not found');
+        }
+
+        await user.click(button);
+
+        const validationError = await screen.findByText(message);
+
+        await user.type(screen.getByLabelText(label), 'randomUpdated');
+
+        expect(validationError).not.toBeInTheDocument();
+      }
+    );
+
+    test.each`
+      label
+      ${'Email'}
+      ${'Password'}
+    `(
+      `clears error message ${FbEnum.errorAuth} if field "$label" is updated`,
+      async ({ label }) => {
+        const { user } = setup(<SignIn />);
+        const signInInput: Record<string, string> = {
+          email: superEmail,
+          password: passTest,
+        };
+
+        await renderAndFill(user, signInInput);
+
+        if (!button) {
+          fail('Button is not found');
+        }
+
+        await user.click(button);
+
+        const validationError = await screen.findByText(FbEnum.errorAuth);
+
+        await user.type(screen.getByLabelText(label), 'randomUpdated');
+
+        expect(validationError).not.toBeInTheDocument();
+      }
+    );
+
+    test('hides sign in form after successful sign in request', async () => {
+      const { user } = setup(<SignIn />);
+      const signInInput: Record<string, string> = {
+        email: superEmail,
+        password: superPassword,
+      };
+
+      await renderAndFill(user, signInInput);
+
+      if (!button) {
+        fail('Button is not found');
+      }
+
+      const form = screen.getByTestId('formSignUp');
+
+      await user.click(button);
+
+      await waitFor(() => {
+        expect(form).not.toBeInTheDocument();
+      });
+    });
+  });
+
+  test('displays redirection notification after successful sign in', async () => {
+    const message =
+      'You have successfully signed in. You will be redirected to the dashboard page in 3 seconds.';
+    const { user } = setup(<SignIn />);
+    const signInInput: Record<string, string> = {
+      email: superEmail,
+      password: superPassword,
+    };
+
+    await renderAndFill(user, signInInput);
+
+    if (!button) {
+      fail('Button is not found');
+    }
+
+    expect(screen.queryByText(message)).not.toBeInTheDocument();
+
+    await user.click(button);
+
+    await waitFor(() => {
+      const text = screen.getByText(message);
+      expect(text).toBeInTheDocument();
     });
   });
 

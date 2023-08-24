@@ -1,5 +1,4 @@
 import { ButtonProps } from './Button.types';
-import './Button.css';
 
 export default function Button({
   onClick,

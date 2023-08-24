@@ -29,11 +29,16 @@ Working On:
         - Interaction:
           - ✅ Showing & Hiding Spinner + showing & hiding "Sign In" text in the button before and after API Request
           - ✅ Disabling & Enabling Submit Button before and after API Request
-          - ✅ Error Case: Showing Error: Validation Error, Authentication Failure, the red border gone and
-          - ✅ Error Case: Showing Red Border to the error & when user is fixing it, it should gone. s
-          - Success Case: Hide the Sign In Form & Show redirection
-          - Success Case: Listen to auth change and store it to the Reducer.
-      - 📝 SignInCover
+          - ✅ Error Case: Showing Error: Validation Error, Authentication Failure, the red border on the field.
+          - ✅ Error Case: Error Validation & Red Border gone if the user type something on the field
+          - ✅ Error Case: auth error gone when the user type something.
+          - ✅ Success Case: Hide the Sign In Form & Show redirection.
+        - Internationalization
+        - Reducer: User
+          - 🏃‍♂️ Success Case: Listen to auth change and store it to the Reducer.
+          - Checking the auth when the app starts and save it to the Reducer.
+      - Reducer: User
+      -
     - 📝 Pages/Routes:
       - 📝 Authentication
       - 📝 AdminCreateUser

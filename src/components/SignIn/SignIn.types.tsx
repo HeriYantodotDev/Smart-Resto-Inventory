@@ -1,8 +1,10 @@
-export interface ErrorStateSignInType {
+export interface ErrorStateType {
+  [key: string]: string | undefined;
+}
+export interface ErrorStateSignInType extends ErrorStateType {
   email?: string;
   password?: string;
   auth?: string;
-  [key: string]: string | undefined;
 }
 
 export interface Placeholder {

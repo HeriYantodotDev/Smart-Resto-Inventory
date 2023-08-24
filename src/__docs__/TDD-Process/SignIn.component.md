@@ -23,7 +23,7 @@ And then add this :
 
 This makes us easier to filter the file test
 
-## Layout & Interaction
+# Layout & Interaction
 
 Let's write our first test:
 
@@ -392,3 +392,239 @@ export function generateErrorListFirebaseError(err: FirebaseError) {
   return errorList;
 }
 ```
+
+Great now let's add the test case: Error Case: Error Validation & Red Border gone if the user type something on the field
+
+- Test
+
+  ```ts
+  test.each`
+    field         | value      | message                          | label
+    ${'email'}    | ${''}      | ${FbEnum.errorEmptyEmail}        | ${'Email'}
+    ${'email'}    | ${'test'}  | ${FbEnum.errorInvalidEmailInput} | ${'Email'}
+    ${'email'}    | ${'test@'} | ${FbEnum.errorInvalidEmailInput} | ${'Email'}
+    ${'password'} | ${''}      | ${FbEnum.errorEmptyPassword}     | ${'Password'}
+  `(
+    'clears error message $message for field "$field" after "$field" is updated',
+    async ({ field, value, message, label }) => {
+      const { user } = setup(<SignIn />);
+      const signInInput: Record<string, string> = {
+        email: emailTest,
+        password: passTest,
+      };
+
+      signInInput[field] = value;
+
+      await renderAndFill(user, signInInput);
+
+      if (!button) {
+        fail('Button is not found');
+      }
+
+      await user.click(button);
+
+      const validationError = await screen.findByText(message);
+
+      await user.type(screen.getByLabelText(label), 'randomUpdated');
+
+      expect(validationError).not.toBeInTheDocument();
+    }
+  );
+  ```
+
+- Implementation
+  First of all we modify our function `userInputState` to also accept the `errors` and `setErrors` state.
+
+  ```ts
+  import React, { useState, ChangeEvent } from 'react';
+  import { ErrorStateType } from '../../../components/SignIn/SignIn.types';
+
+  export default function useInputState(
+    error: ErrorStateType,
+    setErrors: React.Dispatch<React.SetStateAction<ErrorStateType>>,
+    initialValue = ''
+  ) {
+    const [values, setValues] = useState<string>(initialValue);
+
+    // Please Ensure the Input Field ID is the same with the error state
+    function handleChange(event: ChangeEvent<HTMLInputElement>) {
+      const { id, value } = event.target;
+      setValues(value);
+      setErrors({
+        ...error,
+        [id]: initialValue,
+      });
+    }
+
+    return {
+      value: values,
+      onchange: handleChange,
+    };
+  }
+  ```
+
+  As you can see, now this function accept three arguments. Now in the `handlechange` function we not only update the state value but also the `errors` state. In this implementation we have to ensure that the id for the field should have the same name with the error state name.
+
+  Great now all test is passing.
+
+Let's add the next test case: Error Case: auth error gone when the user type something.
+
+We not only have the error messages for validation errors, but also for the authentication errors. Now we'd like the authentication error also gone if the user type something on email or password field.
+
+- Test
+
+  ```ts
+  test.each`
+    label
+    ${'Email'}
+    ${'Password'}
+  `(
+    `clears error message ${FbEnum.errorAuth} if field "$label" is updated`,
+    async ({ label }) => {
+      const { user } = setup(<SignIn />);
+      const signInInput: Record<string, string> = {
+        email: superEmail,
+        password: passTest,
+      };
+
+      await renderAndFill(user, signInInput);
+
+      if (!button) {
+        fail('Button is not found');
+      }
+
+      await user.click(button);
+
+      const validationError = await screen.findByText(FbEnum.errorAuth);
+
+      await user.type(screen.getByLabelText(label), 'randomUpdated');
+
+      expect(validationError).not.toBeInTheDocument();
+    }
+  );
+  ```
+
+- Implementation
+  Again we're going to change the `useInputState`. Since we would like to use this function later in the next function, it might or might not have the `auth` field for the `errorState`. Therefore we have to make it reusable with different scenario. Here's my chosen implementation.
+
+  As you can see in the code above, I also add a new helper function to generate newErrorState
+
+  ```ts
+  import { useState, ChangeEvent, Dispatch, SetStateAction } from 'react';
+  import { ErrorStateType } from '../../../components/SignIn/SignIn.types';
+
+  function generateNewErrorState(
+    errors: ErrorStateType,
+    id: string,
+    additionalErrorStateProperties: string
+  ) {
+    let newErrorState = {
+      ...errors,
+      [id]: '',
+    };
+
+    if (additionalErrorStateProperties) {
+      newErrorState = {
+        ...newErrorState,
+        [additionalErrorStateProperties]: '',
+      };
+    }
+
+    return newErrorState;
+  }
+
+  export default function useInputState(
+    errors: ErrorStateType,
+    setErrors: Dispatch<SetStateAction<ErrorStateType>>,
+    initialValue = '',
+    additionalErrorStateProperties = ''
+  ) {
+    const [values, setValues] = useState<string>(initialValue);
+
+    // Please Ensure the Input Field ID is the same with the error state
+    function handleChange(event: ChangeEvent<HTMLInputElement>) {
+      const { id, value } = event.target;
+      setValues(value);
+
+      const newErrorState = generateNewErrorState(
+        errors,
+        id,
+        additionalErrorStateProperties
+      );
+      setErrors(newErrorState);
+    }
+
+    return {
+      value: values,
+      onchange: handleChange,
+    };
+  }
+  ```
+
+Great now this is last test case in the interaction before moving to internationalization, and reducer: 🏃‍♂️ Success Case: Hide the Sign In Form & Show redirection.
+
+- Test:
+
+  ```ts
+  test.only('displays redirection notification after successful sign in', async () => {
+    const message =
+      'You have successfully signed in. You will be redirected to the dashboard page in 3 seconds.';
+    const { user } = setup(<SignIn />);
+    const signInInput: Record<string, string> = {
+      email: superEmail,
+      password: superPassword,
+    };
+
+    await renderAndFill(user, signInInput);
+
+    if (!button) {
+      fail('Button is not found');
+    }
+
+    expect(screen.queryByText(message)).not.toBeInTheDocument();
+
+    await user.click(button);
+
+    await waitFor(() => {
+      const text = screen.getByText(message);
+      expect(text).toBeInTheDocument();
+    });
+  });
+  ```
+
+- Implementation:
+  Let's create a component named `Information.component`:
+
+  ```ts
+  import { InformationProps } from './Information.types';
+
+  export default function Information({ children }: InformationProps) {
+    return (
+      <div
+        className="mt-2
+          w-auto rounded-b border-t-4  
+          border-blue-500 bg-blue-100 px-4
+          py-3 font-extrabold text-black shadow-lg shadow-blue-500/70"
+      >
+        {children}
+      </div>
+    );
+  }
+  ```
+
+  Now let's add it to our implementation in the `SignIn` component:
+
+  ```ts
+  {
+    signInSuccess && (
+      <Information>
+        You have successfully signed in. You will be redirected to the dashboard
+        page in 3 seconds.
+      </Information>
+    );
+  }
+  ```
+
+# Internationalization
+
+# User Reducer

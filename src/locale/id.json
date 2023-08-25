@@ -1,0 +1,10 @@
+{
+  "signIn": "Masuk",
+  "email": "Email",
+  "password": "Kata Sandi",
+  "errorEmptyEmail": "Alamat Email tidak boleh kosong",
+  "errorInvalidEmailInput": "Email harus dalam bentuk format email yang benar",
+  "errorEmptyPassword": "Password tidak boleh kosong",
+  "errorAuth": "Email atau kata sandi salah",
+  "signInSuccessNotification": "Proses autentikasi berhasil. Anda akan diarahkan ke halaman utama dalam 3 detik."
+}

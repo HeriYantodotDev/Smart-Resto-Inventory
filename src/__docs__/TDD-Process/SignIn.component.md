@@ -627,4 +627,393 @@ Great now this is last test case in the interaction before moving to internation
 
 # Internationalization
 
+Great, now let's set up the internationalization for this case.
+Let's install dependencies:
+
+- https://www.npmjs.com/package/i18next
+- https://www.npmjs.com/package/react-i18next
+
+`npm i i18next react-i18next`
+
+First of all let's create several files under `locale` folder:
+
+- `i18n.ts`"
+
+  ```ts
+  import * as i18n from 'i18next';
+  import { initReactI18next } from 'react-i18next';
+  import * as en from './en.json';
+  import * as id from './id.json';
+
+  i18n.use(initReactI18next).init({
+    resources: {
+      en: {
+        translation: en,
+      },
+      id: {
+        translation: id,
+      },
+    },
+    lng: 'en',
+    fallbackLng: 'en',
+    interpolation: {
+      escapeValue: false,
+    },
+  });
+
+  export default i18n;
+  ```
+
+- `en.json` and `id.json` like this :
+  ```json
+  {
+    "signIn": "Sign In",
+    "email": "Email",
+    "password": "Password"
+  }
+  ```
+- `locale.enum`
+  This is to ensure consistency, so we don't have to hardcode it. Please remember that we also several enums that we can put in the translation, so we don't have to repeat ourselves:
+
+  ```ts
+  enum LOCALE {
+    signIn = 'signIn',
+    email = 'email',
+    password = 'password',
+  }
+
+  export default LOCALE;
+  ```
+
+Please also ensure to put this in the `main.tsx`:
+
+```ts
+import './locale/i18n';
+```
+
+Great now let's write our first internationalization:
+
+```tsx
+describe('Internationalization', () => {
+  test('displays all the text in english in the beginning', () => {
+    render(<SignIn />);
+
+    expect(
+      screen.getByRole('heading', { name: en.signIn })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: en.signIn })
+    ).toBeInTheDocument();
+
+    expect(screen.getByLabelText(en.email)).toBeInTheDocument();
+    expect(screen.getByLabelText(en.password)).toBeInTheDocument();
+  });
+});
+```
+
+This will pass though without we have to do anything since our text is already in English
+
+## Language Selector Component
+
+We need to have a language selector in our app. For simplicity, I will just copy from my previous project here:
+
+`LanguageSelector.component.tsx`:
+
+```tsx
+import { useTranslation } from 'react-i18next';
+
+export default function LanguageSelector() {
+  const { i18n } = useTranslation();
+
+  function onClickLanguage(language: string) {
+    i18n.changeLanguage(language);
+  }
+
+  return (
+    <div>
+      <button type="button" onClick={() => onClickLanguage('en')}>
+        <img
+          className="h-5 w-9"
+          title="English"
+          alt="US Flag"
+          src="https://raw.githubusercontent.com/HeriYantodotDev/image-repos/main/us.png"
+        />
+      </button>
+      <button type="button" onClick={() => onClickLanguage('id')}>
+        <img
+          className="h-5 w-9"
+          title="Indonesian"
+          alt="Indonesian Flag"
+          src="https://raw.githubusercontent.com/HeriYantodotDev/image-repos/main/id.png"
+        />
+      </button>
+    </div>
+  );
+}
+
+```
+
+Great, than we can import it to the `App.tsx` in which we can refactor later. At the moment we focus on the functionality first.
+
+Great now let's test for the language :
+
+```tsx
+test('displays all text in Indonesia after changing the language to Indonesian', async () => {
+  const { user } = setup(
+    <div>
+      <LanguageSelector />
+      <SignIn />
+    </div>
+  );
+
+  const langToggle = screen.getByTitle('Indonesian');
+
+  await user.click(langToggle);
+
+  expect(
+    screen.getByRole('heading', { name: id.signIn })
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole('button', { name: id.signIn })
+  ).toBeInTheDocument();
+
+  expect(screen.getByLabelText(id.email)).toBeInTheDocument();
+  expect(screen.getByLabelText(id.password)).toBeInTheDocument();
+});
+```
+
+The implementation is like this :
+
+```tsx
+import { useTranslation } from 'react-i18next';
+
+export default function SignIn() {
+  const { t } = useTranslation();
+  ...
+
+  <h1 className="text-4xl text-white">{t(LOCALE.signIn)}</h1>
+  ...
+
+```
+
+We add `t(translation code)` for the item that we'd like to translate.
+
+Now let's add test when we change the language to english:
+
+```ts
+test('displays all text in English after changing the language to Indonesian then to English', async () => {
+  const { user } = setup(
+    <div>
+      <LanguageSelector />
+      <SignIn />
+    </div>
+  );
+
+  const IDToggle = screen.getByTitle('Indonesian');
+
+  await user.click(IDToggle);
+
+  const ENToggle = screen.getByTitle('English');
+
+  await user.click(ENToggle);
+
+  expect(screen.getByRole('heading', { name: en.signIn })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: en.signIn })).toBeInTheDocument();
+
+  expect(screen.getByLabelText(en.email)).toBeInTheDocument();
+  expect(screen.getByLabelText(en.password)).toBeInTheDocument();
+});
+```
+
+Now let's check for the error message:
+
+Let's start with the this test, and use `only` keyword to ensure only this will be tested. We also refactor the render function so we don't have to repeat ourselves.
+
+```ts
+function SignInWithLanguageSelector() {
+  return (
+    <div>
+      <LanguageSelector />
+      <SignIn />
+    </div>
+  );
+}
+test.only.each`
+  field         | value      | message
+  ${'email'}    | ${''}      | ${id.errorEmptyEmail}
+  ${'email'}    | ${'test'}  | ${id.errorInvalidEmailInput}
+  ${'email'}    | ${'test@'} | ${id.errorInvalidEmailInput}
+  ${'password'} | ${''}      | ${id.errorEmptyPassword}
+`(
+  'display error message $message for field $field when log in with invalid format',
+  async ({ field, value, message }) => {
+    const { user } = setup(<SignInWithLanguageSelector />);
+    const signInInput: Record<string, string> = {
+      email: emailTest,
+      password: passTest,
+    };
+
+    signInInput[field] = value;
+
+    await renderAndFill(user, signInInput);
+
+    const IDToggle = screen.getByTitle('Indonesian');
+
+    await user.click(IDToggle);
+
+    if (!button) {
+      fail('Button is not found');
+    }
+
+    await user.click(button);
+
+    const validationError = await screen.findByText(message);
+
+    expect(validationError).toBeInTheDocument();
+  }
+);
+```
+
+First of course we have to update our translation. Let's use the enum in the `FBEnum` as the key:
+
+```ts
+{
+  "signIn": "Sign In",
+  "email": "Email",
+  "password": "Password",
+  "errorEmptyEmail": "Email can't be empty",
+  "errorInvalidEmailInput": "The email format is incorrect",
+  "errorEmptyPassword": "Password can't be empty"
+}
+```
+
+Perfect now it's time to change the implementation. As you can see we only need to translate it within the `FormInput.component.tsx`. Why? In this component we pass in the value of error if the error is not falsy. So it would be like this (don't forget to import useTranslation and define t)
+
+```ts
+{
+  error && <ErrorFormText>{t(error)}</ErrorFormText>;
+}
+```
+
+Now we have to change our previous test, since previously in the error test case we're testing with the enum from `FBEnum` Now we're expecting the error will display from our translation. so replacing the `FbEnum` with `en` in our Interaction previous test.
+
+Great now let's add the case for authorization error :
+
+```ts
+test(`display error message "${id.errorAuth}" when login with unregistered user and language is ID`, async () => {
+  const { user } = setup(<SignInWithLanguageSelector />);
+  const signInInput: Record<string, string> = {
+    email: emailTest,
+    password: passTest,
+  };
+
+  await renderAndFill(user, signInInput);
+
+  const IDToggle = screen.getByTitle('Indonesian');
+
+  await user.click(IDToggle);
+
+  if (!button) {
+    fail('Button is not found');
+  }
+
+  await user.click(button);
+
+  const validationError = await screen.findByText(id.errorAuth);
+
+  expect(validationError).toBeInTheDocument();
+});
+
+test(`display error message "${id.errorAuth}" when login with registered user but wrong password and language is ID`, async () => {
+  const { user } = setup(<SignInWithLanguageSelector />);
+  const signInInput: Record<string, string> = {
+    email: superEmail,
+    password: passTest,
+  };
+
+  await renderAndFill(user, signInInput);
+
+  const IDToggle = screen.getByTitle('Indonesian');
+
+  await user.click(IDToggle);
+
+  if (!button) {
+    fail('Button is not found');
+  }
+
+  await user.click(button);
+
+  const validationError = await screen.findByText(id.errorAuth);
+
+  expect(validationError).toBeInTheDocument();
+});
+```
+
+Great now for the implementation we add the translation:
+
+```json
+  "errorAuth": "Incorrect email or password"
+```
+
+Again please ensure the code is similar with the FBEnum.
+
+Next In the `SignIn.component.tsx`:
+
+```tsx
+{errors.auth && (
+          <div>
+            <ErrorFormText>{t(errors.auth)}</ErrorFormText>
+          </div>
+        )}
+```
+
+We're adding the translation to the message that we're going to display after successful login:
+
+```tsx
+  test.only('displays redirection notification in Indonesian after successful sign in and language is Indonesian', async () => {
+    const { user } = setup(<SignInWithLanguageSelector />);
+    const signInInput: Record<string, string> = {
+      email: superEmail,
+      password: superPassword,
+    };
+
+    await renderAndFill(user, signInInput);
+
+    const IDToggle = screen.getByTitle('Indonesian');
+
+    await user.click(IDToggle);
+
+    if (!button) {
+      fail('Button is not found');
+    }
+
+    expect(
+      screen.queryByText(id.signInSuccessNotification)
+    ).not.toBeInTheDocument();
+
+    await user.click(button);
+
+    await waitFor(() => {
+      const text = screen.getByText(id.signInSuccessNotification);
+      expect(text).toBeInTheDocument();
+    });
+  });
+```
+
+The implementation is the same we add LOCALE enum to store the key, and add the translation like this:
+
+```json
+  "signInSuccessNotification": "You have successfully signed in. You will be redirected to the dashboard page in 3 seconds."
+```
+
+Then in the SignIn component we add the translation :
+
+```tsx
+{signInSuccess && (
+    <Information>{t(LOCALE.signInSuccessNotification)}</Information>
+  )}
+```
+
+Great now we can refactor our previous test that test for the success case to check the English translation instead of the hardcoded one.
+
 # User Reducer

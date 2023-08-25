@@ -1,5 +1,6 @@
 import bg from './assets/bg.png';
 import SignIn from './components/SignIn/SignIn.component';
+import LanguageSelector from './components/LanguageSelector/LanguageSelector.component';
 
 function App() {
   return (
@@ -12,6 +13,7 @@ function App() {
           backgroundPosition: 'center',
         }}
       >
+        <LanguageSelector />
         <SignIn />
       </div>
     </div>

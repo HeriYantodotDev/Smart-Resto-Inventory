@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { FormInputProps } from './FormInput.types';
 import ErrorFormText from '../ErrorFormText/ErrorFormText.component';
 
@@ -10,6 +11,7 @@ export default function FormInput({
   type,
   error,
 }: FormInputProps) {
+  const { t } = useTranslation();
   return (
     <div>
       <label
@@ -41,7 +43,7 @@ export default function FormInput({
           boxShadow: '0 0 0 1000px transparent inset',
         }}
       />
-      {error && <ErrorFormText>{error}</ErrorFormText>}
+      {error && <ErrorFormText>{t(error)}</ErrorFormText>}
     </div>
   );
 }

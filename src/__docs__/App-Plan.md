@@ -17,49 +17,24 @@
 I'm creating a plan for this app from the architecture, routes/pages, database, styling, and etc.
 
 Working On:
+k
 
-- 📝 React Admin Page: USER: components & routes: Sign In, Create User, Update User, Set RestaurantIDs to a user
+- Redux or just Reducer?
+  This app doesn't need Redux at all. However, for the learning purpose, I decided to go with Redux.
+  - 🏃‍♂️ Success Case: Listen to auth change and store 7it to the Reducer.
+  - 🏃‍♂️ Checking the auth when the app starts and save it to the Reducer.
+  - 🏃‍♂️Redirection after successful Sign In (But Later on after the reducer.)
+- 📝 Pages/Routes:
 
-  - 📝 Define components & routes for USER:
+  - 📝 Authentication
+  - 📝 AdminCreateUser
+  - 📝 AdminUpdateUser
+  - 📝 AdminDeleteUser
+  - 📝 AdminAssignRestaurantIDs
 
-    - 📝 Components:
+- Admin Page: Create User, Update User, Set RestaurantIDs to a user
 
-      - ✅ Button
-      - ✅ Loading
-      - ✅ FormInput
-      - ✅ TextLogo
-      - 📝 SignIn
-
-        - Interaction:
-          - ✅ Showing & Hiding Spinner + showing & hiding "Sign In" text in the button before and after API Request
-          - ✅ Disabling & Enabling Submit Button before and after API Request
-          - ✅ Error Case: Showing Error: Validation Error, Authentication Failure, the red border on the field.
-          - ✅ Error Case: Error Validation & Red Border gone if the user type something on the field
-          - ✅ Error Case: auth error gone when the user type something.
-          - ✅ Success Case: Hide the Sign In Form & Show redirection.
-        - Internationalization
-
-          - ✅ LanguageSelector.component
-          - ✅ Set Up Internationalization
-          - ✅ Label Input form & Header
-          - ✅ Validation Error & Auth Error
-          - ✅Success Message
-
-        - Reducer: User
-          - 🏃‍♂️ Success Case: Listen to auth change and store it to the Reducer.
-          - Checking the auth when the app starts and save it to the Reducer.
-          - 🏃‍♂️Redirection after successful Sign In (But Later on after the reducer.)
-
-    - 📝 Pages/Routes:
-      - 📝 Authentication
-      - 📝 AdminCreateUser
-      - 📝 AdminUpdateUser
-      - 📝 AdminDeleteUser
-      - 📝 AdminAssignRestaurantIDs
-
-  - 📝 Styling:
-    - ✅ Font: https://fonts.google.com/specimen/Poiret+One
-    - ✅ Inspiration: Background and Sign In Effect: https://reactjsexample.com/responsive-glassmorphism-login-page-with-react/
+- App Layout
 
 To Do List:
 
@@ -69,6 +44,30 @@ To Do List:
 - And many more
 
 Done List:
+
+- ✅ Basic Styling:
+  - ✅ Font: https://fonts.google.com/specimen/Poiret+One
+  - ✅ Inspiration: Background and Sign In Effect: https://reactjsexample.com/responsive-glassmorphism-login-page-with-react/
+- ✅ Button
+- ✅ Loading
+- ✅ FormInput
+- ✅ TextLogo
+- ✅ SignIn
+
+  - Interaction:
+    - ✅ Showing & Hiding Spinner + showing & hiding "Sign In" text in the button before and after API Request
+    - ✅ Disabling & Enabling Submit Button before and after API Request
+    - ✅ Error Case: Showing Error: Validation Error, Authentication Failure, the red border on the field.
+    - ✅ Error Case: Error Validation & Red Border gone if the user type something on the field
+    - ✅ Error Case: auth error gone when the user type something.
+    - ✅ Success Case: Hide the Sign In Form & Show redirection.
+  - Internationalization
+
+    - ✅ LanguageSelector.component
+    - ✅ Set Up Internationalization
+    - ✅ Label Input form & Header
+    - ✅ Validation Error & Auth Error
+    - ✅Success Message
 
 - ✅ Test and add CRUD functionality for User Collections helper Functions:
   - ✅ create & test the `deleteUserDocument` function

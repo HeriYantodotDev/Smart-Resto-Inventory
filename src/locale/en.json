@@ -1,0 +1,10 @@
+{
+  "signIn": "Sign In",
+  "email": "Email",
+  "password": "Password",
+  "errorEmptyEmail": "Email can't be empty",
+  "errorInvalidEmailInput": "The email format is incorrect",
+  "errorEmptyPassword": "Password can't be empty",
+  "errorAuth": "Incorrect email or password",
+  "signInSuccessNotification": "You have successfully signed in. You will be redirected to the dashboard page in 3 seconds."
+}

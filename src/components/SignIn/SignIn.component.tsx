@@ -1,4 +1,5 @@
 import { useCallback, MouseEvent, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { FirebaseError } from 'firebase/app';
 import { ValidationError } from 'yup';
@@ -19,9 +20,12 @@ import {
   generateErrorListFirebaseError,
 } from '../../service/utils/Errors/generateErrorLists';
 
+import LOCALE from '../../locale/locale.enum';
+
 const defaultValue = '';
 
 export default function SignIn() {
+  const { t } = useTranslation();
   const [errors, setErrors] = useState<ErrorStateSignInType>({});
   const emailInput = useInputState(errors, setErrors, defaultValue, 'auth');
   const passwordInput = useInputState(errors, setErrors, defaultValue, 'auth');
@@ -78,12 +82,12 @@ export default function SignIn() {
               <TextLogo>Kopi Satu</TextLogo>
             </div>
             <div className="flex h-20 items-center justify-center">
-              <h1 className="text-4xl text-white">Sign In</h1>
+              <h1 className="text-4xl text-white">{t(LOCALE.signIn)}</h1>
             </div>
             <div className="mx-6 my-6">
               <FormInput
                 onChange={emailInput.onchange}
-                labelName="Email"
+                labelName={t(LOCALE.email)}
                 htmlFor="email"
                 id="email"
                 value={emailInput.value}
@@ -92,7 +96,7 @@ export default function SignIn() {
               />
               <FormInput
                 onChange={passwordInput.onchange}
-                labelName="Password"
+                labelName={t(LOCALE.password)}
                 htmlFor="password"
                 id="password"
                 value={passwordInput.value}
@@ -101,21 +105,18 @@ export default function SignIn() {
               />
               {errors.auth && (
                 <div>
-                  <ErrorFormText>{errors.auth}</ErrorFormText>
+                  <ErrorFormText>{t(errors.auth)}</ErrorFormText>
                 </div>
               )}
               <Button onClick={handleSubmit} disabled={apiProgress}>
-                {apiProgress ? <Spinner /> : 'Sign In'}
+                {apiProgress ? <Spinner /> : t(LOCALE.signIn)}
               </Button>
             </div>
           </form>
         )}
 
         {signInSuccess && (
-          <Information>
-            You have successfully signed in. You will be redirected to the
-            dashboard page in 3 seconds.
-          </Information>
+          <Information>{t(LOCALE.signInSuccessNotification)}</Information>
         )}
       </div>
     </div>

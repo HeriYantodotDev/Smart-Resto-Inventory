@@ -19,13 +19,17 @@ I'm creating a plan for this app from the architecture, routes/pages, database, 
 Working On:
 
 - 📝 React Admin Page: USER: components & routes: Sign In, Create User, Update User, Set RestaurantIDs to a user
+
   - 📝 Define components & routes for USER:
+
     - 📝 Components:
+
       - ✅ Button
       - ✅ Loading
       - ✅ FormInput
       - ✅ TextLogo
       - 📝 SignIn
+
         - Interaction:
           - ✅ Showing & Hiding Spinner + showing & hiding "Sign In" text in the button before and after API Request
           - ✅ Disabling & Enabling Submit Button before and after API Request
@@ -34,18 +38,25 @@ Working On:
           - ✅ Error Case: auth error gone when the user type something.
           - ✅ Success Case: Hide the Sign In Form & Show redirection.
         - Internationalization
+
+          - ✅ LanguageSelector.component
+          - ✅ Set Up Internationalization
+          - ✅ Label Input form & Header
+          - ✅ Validation Error & Auth Error
+          - ✅Success Message
+
         - Reducer: User
           - 🏃‍♂️ Success Case: Listen to auth change and store it to the Reducer.
           - Checking the auth when the app starts and save it to the Reducer.
-      - Reducer: User
-      -
+          - 🏃‍♂️Redirection after successful Sign In (But Later on after the reducer.)
+
     - 📝 Pages/Routes:
       - 📝 Authentication
       - 📝 AdminCreateUser
       - 📝 AdminUpdateUser
       - 📝 AdminDeleteUser
       - 📝 AdminAssignRestaurantIDs
-  - 📝 Set Up Internationalization
+
   - 📝 Styling:
     - ✅ Font: https://fonts.google.com/specimen/Poiret+One
     - ✅ Inspiration: Background and Sign In Effect: https://reactjsexample.com/responsive-glassmorphism-login-page-with-react/

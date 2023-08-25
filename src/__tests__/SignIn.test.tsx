@@ -8,13 +8,20 @@ import {
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
+import { act } from 'react-dom/test-utils';
+import i18n from '../locale/i18n';
+
 import SignIn from '../components/SignIn/SignIn.component';
 // Extend Jest "expect" functionality with Testing Library assertions.
 
 import { emailTest, passTest, superEmail, superPassword } from './helper';
-import { FbEnum } from '../service/utils/enums/firebaseEnum';
 
 import { signOutUser } from '../service/firebase/firebase.auth';
+
+import LanguageSelector from '../components/LanguageSelector/LanguageSelector.component';
+
+import * as en from '../locale/en.json';
+import * as id from '../locale/id.json';
 
 function setup(jsx: JSX.Element) {
   return {
@@ -125,10 +132,10 @@ describe('Sign In Component', () => {
 
     test.each`
       field         | value      | message
-      ${'email'}    | ${''}      | ${FbEnum.errorEmptyEmail}
-      ${'email'}    | ${'test'}  | ${FbEnum.errorInvalidEmailInput}
-      ${'email'}    | ${'test@'} | ${FbEnum.errorInvalidEmailInput}
-      ${'password'} | ${''}      | ${FbEnum.errorEmptyPassword}
+      ${'email'}    | ${''}      | ${en.errorEmptyEmail}
+      ${'email'}    | ${'test'}  | ${en.errorInvalidEmailInput}
+      ${'email'}    | ${'test@'} | ${en.errorInvalidEmailInput}
+      ${'password'} | ${''}      | ${en.errorEmptyPassword}
     `(
       'display error message $message for field $field when log in with invalid format',
       async ({ field, value, message }) => {
@@ -154,7 +161,7 @@ describe('Sign In Component', () => {
       }
     );
 
-    test(`display error message "${FbEnum.errorAuth}" when login with unregistered user`, async () => {
+    test(`display error message "${en.errorAuth}" when login with unregistered user`, async () => {
       const { user } = setup(<SignIn />);
       const signInInput: Record<string, string> = {
         email: emailTest,
@@ -169,12 +176,12 @@ describe('Sign In Component', () => {
 
       await user.click(button);
 
-      const validationError = await screen.findByText(FbEnum.errorAuth);
+      const validationError = await screen.findByText(en.errorAuth);
 
       expect(validationError).toBeInTheDocument();
     });
 
-    test(`display error message "${FbEnum.errorAuth}" when login with registered user but wrong password`, async () => {
+    test(`display error message "${en.errorAuth}" when login with registered user but wrong password`, async () => {
       const { user } = setup(<SignIn />);
       const signInInput: Record<string, string> = {
         email: superEmail,
@@ -189,17 +196,17 @@ describe('Sign In Component', () => {
 
       await user.click(button);
 
-      const validationError = await screen.findByText(FbEnum.errorAuth);
+      const validationError = await screen.findByText(en.errorAuth);
 
       expect(validationError).toBeInTheDocument();
     });
 
     test.each`
-      field         | value      | message                          | label
-      ${'email'}    | ${''}      | ${FbEnum.errorEmptyEmail}        | ${'Email'}
-      ${'email'}    | ${'test'}  | ${FbEnum.errorInvalidEmailInput} | ${'Email'}
-      ${'email'}    | ${'test@'} | ${FbEnum.errorInvalidEmailInput} | ${'Email'}
-      ${'password'} | ${''}      | ${FbEnum.errorEmptyPassword}     | ${'Password'}
+      field         | value      | message                      | label
+      ${'email'}    | ${''}      | ${en.errorEmptyEmail}        | ${'Email'}
+      ${'email'}    | ${'test'}  | ${en.errorInvalidEmailInput} | ${'Email'}
+      ${'email'}    | ${'test@'} | ${en.errorInvalidEmailInput} | ${'Email'}
+      ${'password'} | ${''}      | ${en.errorEmptyPassword}     | ${'Password'}
     `(
       'clears error message $message for field "$field" after "$field" is updated',
       async ({ field, value, message, label }) => {
@@ -232,7 +239,7 @@ describe('Sign In Component', () => {
       ${'Email'}
       ${'Password'}
     `(
-      `clears error message ${FbEnum.errorAuth} if field "$label" is updated`,
+      `clears error message ${en.errorAuth} if field "$label" is updated`,
       async ({ label }) => {
         const { user } = setup(<SignIn />);
         const signInInput: Record<string, string> = {
@@ -248,7 +255,7 @@ describe('Sign In Component', () => {
 
         await user.click(button);
 
-        const validationError = await screen.findByText(FbEnum.errorAuth);
+        const validationError = await screen.findByText(en.errorAuth);
 
         await user.type(screen.getByLabelText(label), 'randomUpdated');
 
@@ -280,8 +287,6 @@ describe('Sign In Component', () => {
   });
 
   test('displays redirection notification after successful sign in', async () => {
-    const message =
-      'You have successfully signed in. You will be redirected to the dashboard page in 3 seconds.';
     const { user } = setup(<SignIn />);
     const signInInput: Record<string, string> = {
       email: superEmail,
@@ -294,17 +299,197 @@ describe('Sign In Component', () => {
       fail('Button is not found');
     }
 
-    expect(screen.queryByText(message)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(en.signInSuccessNotification)
+    ).not.toBeInTheDocument();
 
     await user.click(button);
 
     await waitFor(() => {
-      const text = screen.getByText(message);
+      const text = screen.getByText(en.signInSuccessNotification);
       expect(text).toBeInTheDocument();
     });
   });
 
-  // describe('Internationalization', () => {
+  describe('Internationalization', () => {
+    afterEach(() => {
+      act(() => {
+        i18n.changeLanguage('en');
+      });
+    });
 
-  // });
+    function SignInWithLanguageSelector() {
+      return (
+        <div>
+          <LanguageSelector />
+          <SignIn />
+        </div>
+      );
+    }
+    test('displays all the text in english in the beginning', () => {
+      render(<SignIn />);
+
+      expect(
+        screen.getByRole('heading', { name: en.signIn })
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: en.signIn })
+      ).toBeInTheDocument();
+
+      expect(screen.getByLabelText(en.email)).toBeInTheDocument();
+      expect(screen.getByLabelText(en.password)).toBeInTheDocument();
+    });
+
+    test('displays all text in Indonesia after changing the language to Indonesian', async () => {
+      const { user } = setup(<SignInWithLanguageSelector />);
+
+      const langToggle = screen.getByTitle('Indonesian');
+
+      await user.click(langToggle);
+
+      expect(
+        screen.getByRole('heading', { name: id.signIn })
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: id.signIn })
+      ).toBeInTheDocument();
+
+      expect(screen.getByLabelText(id.email)).toBeInTheDocument();
+      expect(screen.getByLabelText(id.password)).toBeInTheDocument();
+    });
+
+    test('displays all text in English after changing the language to Indonesian then to English', async () => {
+      const { user } = setup(<SignInWithLanguageSelector />);
+
+      const IDToggle = screen.getByTitle('Indonesian');
+
+      await user.click(IDToggle);
+
+      const ENToggle = screen.getByTitle('English');
+
+      await user.click(ENToggle);
+
+      expect(
+        screen.getByRole('heading', { name: en.signIn })
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: en.signIn })
+      ).toBeInTheDocument();
+
+      expect(screen.getByLabelText(en.email)).toBeInTheDocument();
+      expect(screen.getByLabelText(en.password)).toBeInTheDocument();
+    });
+
+    test.each`
+      field         | value      | message
+      ${'email'}    | ${''}      | ${id.errorEmptyEmail}
+      ${'email'}    | ${'test'}  | ${id.errorInvalidEmailInput}
+      ${'email'}    | ${'test@'} | ${id.errorInvalidEmailInput}
+      ${'password'} | ${''}      | ${id.errorEmptyPassword}
+    `(
+      'display error message $message for field $field when log in with invalid format',
+      async ({ field, value, message }) => {
+        const { user } = setup(<SignInWithLanguageSelector />);
+        const signInInput: Record<string, string> = {
+          email: emailTest,
+          password: passTest,
+        };
+
+        signInInput[field] = value;
+
+        await renderAndFill(user, signInInput);
+
+        const IDToggle = screen.getByTitle('Indonesian');
+
+        await user.click(IDToggle);
+
+        if (!button) {
+          fail('Button is not found');
+        }
+
+        await user.click(button);
+
+        const validationError = await screen.findByText(message);
+
+        expect(validationError).toBeInTheDocument();
+      }
+    );
+
+    test(`display error message "${id.errorAuth}" when login with unregistered user and language is ID`, async () => {
+      const { user } = setup(<SignInWithLanguageSelector />);
+      const signInInput: Record<string, string> = {
+        email: emailTest,
+        password: passTest,
+      };
+
+      await renderAndFill(user, signInInput);
+
+      const IDToggle = screen.getByTitle('Indonesian');
+
+      await user.click(IDToggle);
+
+      if (!button) {
+        fail('Button is not found');
+      }
+
+      await user.click(button);
+
+      const validationError = await screen.findByText(id.errorAuth);
+
+      expect(validationError).toBeInTheDocument();
+    });
+
+    test(`display error message "${id.errorAuth}" when login with registered user but wrong password and language is ID`, async () => {
+      const { user } = setup(<SignInWithLanguageSelector />);
+      const signInInput: Record<string, string> = {
+        email: superEmail,
+        password: passTest,
+      };
+
+      await renderAndFill(user, signInInput);
+
+      const IDToggle = screen.getByTitle('Indonesian');
+
+      await user.click(IDToggle);
+
+      if (!button) {
+        fail('Button is not found');
+      }
+
+      await user.click(button);
+
+      const validationError = await screen.findByText(id.errorAuth);
+
+      expect(validationError).toBeInTheDocument();
+    });
+
+    test('displays redirection notification in Indonesian after successful sign in and language is Indonesian', async () => {
+      const { user } = setup(<SignInWithLanguageSelector />);
+      const signInInput: Record<string, string> = {
+        email: superEmail,
+        password: superPassword,
+      };
+
+      await renderAndFill(user, signInInput);
+
+      const IDToggle = screen.getByTitle('Indonesian');
+
+      await user.click(IDToggle);
+
+      if (!button) {
+        fail('Button is not found');
+      }
+
+      expect(
+        screen.queryByText(id.signInSuccessNotification)
+      ).not.toBeInTheDocument();
+
+      await user.click(button);
+
+      await waitFor(() => {
+        const text = screen.getByText(id.signInSuccessNotification);
+        expect(text).toBeInTheDocument();
+      });
+    });
+  });
 });
